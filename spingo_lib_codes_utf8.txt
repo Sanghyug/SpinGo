@@ -1,0 +1,2508 @@
+﻿
+===== C:\Users\parki\spingo\lib\components\basketball.dart =====
+
+// lib/components/basketball.dart
+import 'dart:math';
+import 'dart:ui' as ui; // Gradient
+import 'package:flame/components.dart';
+import 'package:flutter/material.dart';
+
+/// 구의 윗부분을 잘라내고(아랫부분 40%만 남김),
+/// 절단면(타원) + 벽 두께(오렌지 링) + 내부 흰색 + 회전 점선(두께 위)을 표시.
+/// 검은 홈선/무늬 없음.
+class Basketball extends PositionComponent {
+  double radius;
+  double omega;     // 점선 회전 속도
+  double friction;  // 감속
+  double angle = 0; // 회전 위상
+
+  final Color base = const Color(0xFFEB7A2D);   // 오렌지(외피/벽두께)
+  final Color shadow = const Color(0xFFB4541E); // 아래쪽 그늘(볼륨)
+  final Color inner = Colors.white;             // 내부 색
+
+  Basketball({
+    required Vector2 position,
+    this.radius = 60,
+    this.omega = 8.0,
+    this.friction = 0.6,
+  }) : super(position: position, size: Vector2.all(1), anchor: Anchor.center, priority: 1000);
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    omega = max(0, omega - friction * dt);
+    angle = (angle + omega * dt) % (pi * 2);
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final r = radius;
+    final c = Offset.zero;
+
+    // ---- 절단 높이: 아래 40%만 남기기 → 평면 y = +0.2r
+    final double yCut = r * 0.20;
+
+    // 절단 원 반지름
+    final double rPlane = sqrt(max(0, r * r - yCut * yCut));
+
+    // 살짝 위에서 내려다보는 시점 → 타원
+    const double perspective = 0.56; // 0.50~0.65 조절
+    final double cutW = rPlane * 2;
+    final double cutH = max(1, rPlane * 2 * perspective);
+
+    // 벽 두께(px)
+    final double wall = max(2.0, r * 0.08);
+
+    // ---- 1) 하단 반구(40%) 그리기
+    canvas.save();
+    canvas.clipRect(Rect.fromLTRB(-r * 3, yCut, r * 3, r * 3));
+    canvas.drawCircle(c, r, Paint()..color = base);
+
+    final radialPaint = Paint()
+      ..shader = ui.Gradient.radial(
+        c.translate(0, r * 0.35),
+        r * 1.1,
+        [Colors.transparent, shadow.withOpacity(0.85)],
+        [0.35, 1.0],
+      );
+    canvas.drawCircle(c, r, radialPaint);
+
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(-r * 0.35, -r * 0.45),
+        width: r * 0.8,
+        height: r * 0.5,
+      ),
+      Paint()..color = Colors.white.withOpacity(0.18),
+    );
+    canvas.restore();
+
+    // ---- 2) 절단 타원 + 내부
+    final Rect outerCutRect = Rect.fromCenter(center: Offset(0, yCut), width: cutW, height: cutH);
+    final Rect innerCutRect = outerCutRect.deflate(wall);
+
+    // 바깥 절단 타원(오렌지) = 벽 두께 바탕
+    canvas.drawOval(outerCutRect, Paint()..color = base);
+
+    // 내부 흰색 + 살짝 그늘
+    if (innerCutRect.width > 0 && innerCutRect.height > 0) {
+      canvas.drawOval(innerCutRect, Paint()..color = inner);
+      final innerShade = Paint()..color = Colors.black.withOpacity(0.06);
+      final Rect shadeRect = innerCutRect.translate(0, innerCutRect.height * 0.12);
+      canvas.drawOval(shadeRect, innerShade);
+    }
+
+    // 얇은 외곽선(옵션)
+    canvas.drawOval(
+      outerCutRect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = const Color(0xFF3A1E0E).withOpacity(0.20),
+    );
+    if (innerCutRect.width > 0 && innerCutRect.height > 0) {
+      canvas.drawOval(
+        innerCutRect,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0
+          ..color = Colors.black.withOpacity(0.10),
+      );
+    }
+
+    // ---- 3) 벽 두께 링에 "회전 점선" (앞/뒤 전부)
+    if (innerCutRect.width > 0 && innerCutRect.height > 0) {
+      _drawDottedWallRim(
+          canvas: canvas,
+          outerRect: outerCutRect,
+          innerRect: innerCutRect,
+          phase: angle,        // 회전 위상
+          dotCount: 40,        // 48~64 권장
+          onlyFrontHalf: false // ✅ 뒤쪽까지 이어지게
+      );
+    }
+
+    // 전체 외곽선 아주 옅게(옵션)
+    canvas.drawCircle(
+      c,
+      r,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = const Color(0xFF0D0D0D).withOpacity(0.10),
+    );
+  }
+
+  /// 벽 두께 링 중앙선을 따라 회전하는 점선
+  /// - onlyFrontHalf=false이면 뒤쪽(윗반원)도 그리되, 뒤쪽은 옅게
+  void _drawDottedWallRim({
+    required Canvas canvas,
+    required Rect outerRect,
+    required Rect innerRect,
+    required double phase,
+    int dotCount = 56,
+    bool onlyFrontHalf = true,
+  }) {
+    final cx = (outerRect.left + outerRect.right) / 2;
+    final cy = (outerRect.top + outerRect.bottom) / 2;
+
+    final rx = ((outerRect.width / 2) + (innerRect.width / 2)) / 2;
+    final ry = ((outerRect.height / 2) + (innerRect.height / 2)) / 2;
+
+    final wall = (outerRect.width - innerRect.width) / 2;
+    final double rDot = wall * 0.45; // 0.30~0.45
+
+    // 뒤쪽(윗반원) 먼저 옅게 그리기 → 앞쪽 점이 덮여 자연스러운 겹침
+    if (!onlyFrontHalf) {
+      final Paint backP = Paint()..color = const Color(0xFF311B0B).withOpacity(0.30);
+      for (int i = 0; i < dotCount; i++) {
+        final theta = phase + (2 * pi / dotCount) * i;
+        final dx = cx + rx * cos(theta);
+        final dy = cy + ry * sin(theta);
+        // 화면 좌표계에서 뒤쪽은 dy <= cy (타원 윗쪽)
+        if (dy <= cy) {
+          canvas.drawCircle(Offset(dx, dy), rDot, backP);
+        }
+      }
+    }
+
+    // 앞쪽(아랫반원) 선명하게
+    final Paint frontP = Paint()..color = const Color(0xFF311B0B).withOpacity(0.85);
+    for (int i = 0; i < dotCount; i++) {
+      final theta = phase + (2 * pi / dotCount) * i;
+      final dx = cx + rx * cos(theta);
+      final dy = cy + ry * sin(theta);
+      if (onlyFrontHalf) {
+        if (dy > cy) {
+          canvas.drawCircle(Offset(dx, dy), rDot, frontP);
+        }
+      } else {
+        // 전체를 그리되 앞쪽은 진하게
+        if (dy > cy) {
+          canvas.drawCircle(Offset(dx, dy), rDot, frontP);
+        } else {
+          // 뒤쪽은 위에서 이미 옅게 그려졌음
+          // 필요 시 여기서도 한 번 더 옅게 그릴 수 있음.
+        }
+      }
+    }
+  }
+}
+
+===== C:\Users\parki\spingo\lib\components\big_plate.dart =====
+
+import 'package:flame/components.dart';
+import 'plate.dart';
+import 'dart:math';
+import 'dart:ui' as ui;
+
+// big_plate.dart 수정본
+class BigPlate extends Plate {
+  BigPlate({required Vector2 center, required String imagePath})
+      : super(
+    center: center,
+    imagePath: imagePath,
+    friction: 2.8,
+    // 마찰력 2.8
+    maxTilt: 0.7,
+    // 기울기 임계값 1.2
+    omegaMax: 28,
+    // 28 이상 비행
+    initialOmega: 18,
+    plateSize: Vector2(180, 180),
+  );
+
+  @override
+  void boost(double input) {
+    // 🔥 접시보다 스와이프에 20% 빨리 반응 (1.2배)
+    super.boost(input * 1.2);
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    // 🔥 과열 시작점 재정의 (24 이상)
+    final targetHeat = ((omega - 24.0) / (28.0 - 24.0)).clamp(0.0, 1.0);
+    heat = ui.lerpDouble(heat, targetHeat, dt * 3.0)!;
+  }
+}
+
+===== C:\Users\parki\spingo\lib\components\bowl.dart =====
+
+import 'dart:math';
+import 'dart:ui' as ui;
+import 'package:flame/components.dart';
+import 'plate.dart';
+
+class BowlPlate extends Plate {
+  late Sprite _plainBowl;
+  double _dotRotation = 0.0;
+  double _wobbleTime = 0.0;
+
+  BowlPlate({required Vector2 center})
+      : super(
+    center: center,
+    imagePath: 'components/plain_bowl.png',
+    friction: 2.0,
+    // 마찰력 0.8
+    maxTilt: 0.8,
+    // 기울기 임계값 0.8
+    omegaMax: 35,
+    // 35 이상 비행
+    initialOmega: 20,
+    plateSize: Vector2(100, 100),
+  );
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    _plainBowl = await game.loadSprite('components/plain_bowl.png');
+  }
+
+  @override
+  void boost(double input) {
+    // 🔥 접시보다 스와이프에 20% 느리게 반응 (0.8배)
+    super.boost(input * 0.8);
+  }
+
+  @override
+  void update(double dt) {
+    // 1. 비행 상태라면 부모 로직 수행 후 종료
+    if (flyingAway) {
+      super.update(dt);
+      return;
+    }
+
+    // 2. 사발 전용 회전 및 흔들림 업데이트
+    if (!falling) {
+      _dotRotation += dt * (omega * 1.5);
+      _dotRotation %= 2 * pi;
+
+      // 흔들림 진폭 (3~15 구간)
+      targetAmp = (1 - (omega - 3.0) / (15.0 - 3.0)).clamp(0, 1) * maxTilt;
+
+      final freq = 0.5 + (omega * 0.3);
+      phase += freq * dt;
+      tilt = sin(phase) * targetAmp;
+
+      // 🔥 [수정] 과열 시각화 구간 조정 (30이 아니라 28부터 붉어지게)
+      final targetHeat = ((omega - 28.0) / (35.0 - 28.0)).clamp(0.0, 1.0);
+      heat = ui.lerpDouble(heat, targetHeat, dt * 3.0)!;
+    }
+
+    // 3. 🔥 [중요] 비행 및 물리 로직을 위해 부모 update 호출
+    // 이때 plate.dart에서 수정한 완화된 비행 조건이 적용됩니다.
+    super.update(dt);
+  }
+
+  @override
+  void render(ui.Canvas canvas) {
+    canvas.save();
+    canvas.translate(size.x / 2, size.y / 2);
+    canvas.rotate(tilt);
+
+    _plainBowl.render(canvas, size: size, anchor: Anchor.center);
+
+    _renderRotatingDots(canvas);
+
+    canvas.restore();
+  }
+
+  void _renderRotatingDots(ui.Canvas canvas) {
+    final paint = ui.Paint()
+      ..color = const ui.Color(0xFF2C4A8D).withOpacity(0.7)
+      ..style = ui.PaintingStyle.fill;
+
+    const int dotCount = 8;
+    final double radiusX = size.x * 0.44;
+    final double yCenter = 0.0;
+
+    for (int i = 0; i < dotCount; i++) {
+      double currentAngle = (i * (2 * pi / dotCount)) + _dotRotation;
+
+      double x = cos(currentAngle) * radiusX;
+      double z = sin(currentAngle);
+
+      if (z > 0) {
+        double dotSize = 1.5 + (z * 1.5);
+
+        // ✅ 곡선 보정 핵심:
+        // 중앙(x=0)에서 y값이 가장 크고(아래), 양 끝(x=radiusX)으로 갈수록 y값이 작아지도록(위) 설정
+        // (1 - x제곱 비율)을 사용하여 아래로 볼록한 곡선을 만듭니다.
+        double curveDepth = 8.0; // 곡선의 깊이 (숫자가 클수록 더 많이 휘어짐)
+        double curvedY = yCenter + (1 - pow(x / radiusX, 2)) * curveDepth;
+
+        canvas.drawCircle(ui.Offset(x, curvedY), dotSize, paint);
+      }
+    }
+  }
+}
+
+===== C:\Users\parki\spingo\lib\components\plate.dart =====
+
+import 'dart:math';
+import 'dart:ui' as ui;
+import 'package:flame/components.dart';
+import 'package:flame/game.dart';
+import 'package:flutter/material.dart';
+import '../sound_manager.dart';
+
+class Plate extends SpriteComponent with HasGameReference<FlameGame> {
+  double omega;
+  double angleRad = 0;
+  double tilt = 0;
+  double phase = 0;
+  double currentAmp = 0,
+      targetAmp = 0;
+
+  // 🔥 오류 해결 1: final 변수는 선언 시 혹은 이니셜라이저에서 초기화해야 합니다.
+  final double phaseOffset = Random().nextDouble() * 2 * pi;
+
+  double flatTimer = 0.0;
+  bool gameOver = false;
+  bool flyingAway = false;
+  bool falling = false;
+  double heat = 0.0;
+
+  // 물성치
+  double friction;
+  double omegaMax;
+  double maxTilt;
+  double fallSpeed;
+
+  // 🔥 오류 해결 2 & 3: 기본값을 직접 할당하여 초기화 누락 방지
+  double omegaMin = 0.5;
+  double flySpeedY = -300;
+  double flySpeedX = 150;
+
+  final String imagePath;
+
+  Plate({
+    required Vector2 center,
+    required this.imagePath,
+    double initialOmega = 15,
+    this.friction = 1.0,
+    this.omegaMax = 30,
+    this.maxTilt = 0.8,
+    this.fallSpeed = 600,
+    Vector2? plateSize,
+  })
+      : omega = initialOmega,
+        super(
+        size: plateSize ?? Vector2(160, 160),
+        anchor: Anchor.center,
+        position: center,
+        priority: 10,
+      );
+
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    sprite = await game.loadSprite(imagePath);
+  }
+
+  @override
+  void onMount() {
+    super.onMount();
+    phase = phaseOffset;
+  }
+
+  void boost(double input) {
+    if (gameOver || flyingAway || falling) return;
+    // 부스트 시에도 omegaMax를 넘으면 즉시 비행 준비
+    omega += input * 0.02;
+    // 너무 무한정 올라가는 것만 방지 (예: 최대 50)
+    if (omega > 50) omega = 50;
+  }
+
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    if (gameOver) return;
+
+    // --- 비행 상태 연출 ---
+    if (flyingAway) {
+      position.y += flySpeedY * dt;
+      position.x += flySpeedX * dt;
+      angle += dt * 10;
+      if (position.y + size.y < 0) gameOver = true;
+      return;
+    }
+
+    // 1. 회전력 감쇠
+    omega -= friction * dt;
+
+    // 2. 🔥 [추락 판정] 3.0 이하 시 즉시 추락 상태로 전환
+    if (!falling && !flyingAway && omega <= 3.0) {
+      falling = true;
+      SoundManager.playSfxSafe("crash.wav"); // 추락 사운드
+    }
+
+    // --- 추락 상태 연출 ---
+    if (falling) {
+      position.y += (fallSpeed + 900) * dt;
+      angle = ui.lerpDouble(angle, (tilt >= 0 ? 1.57 : -1.57), dt * 25)!;
+      if (position.y > game.size.y + 100) gameOver = true;
+      return;
+    }
+
+    // 3. ✅ [가장 중요] 수평 회전각 계산 (이 코드가 빠져서 안 돌았던 것입니다!)
+    // 회전 속도(omega)에 시간을 곱해 각도를 누적합니다.
+    angleRad = (angleRad + omega * dt) % (pi * 2);
+
+    // 4. 흔들림 진폭 계산 (3~12 구간)
+    targetAmp = (1 - (omega - 3.0) / (12.0 - 3.0)).clamp(0, 1) * maxTilt;
+    currentAmp = ui.lerpDouble(currentAmp, targetAmp, dt * 2.0)!;
+
+    // 흔들림 주기 적용 (sin 그래프를 그려 실제 기울기 생성)
+    final freq = 0.5 + (omega * 0.3);
+    phase += freq * dt;
+    tilt = sin(phase) * currentAmp;
+
+    // 시각적 기울기 반영
+    angle = tilt;
+
+    // 5. 🔥 [수정] 비행 조건 완화
+    // omega가 omegaMax 근처(예: 0.5 차이)만 가도 타이머가 돌게 합니다.
+    if (omega >= (omegaMax - 0.5)) {
+      // 수평 조건(tilt)을 조금 더 너그럽게(0.05 -> 0.1) 조정합니다.
+      if (tilt.abs() < 0.1) {
+        flatTimer += dt;
+        // 1초 유지 시 비행
+        if (flatTimer >= 1.0) {
+          flyingAway = true;
+          SoundManager.playSfxSafe("fly.wav"); // 비행 사운드 추가 추천
+        }
+      } else {
+        flatTimer = 0; // 기울어지면 타이머 리셋
+      }
+    } else {
+      flatTimer = 0;
+    }
+
+    // 6. 과열 시각화 (25 이상부터)
+    final targetHeat = ((omega - 25.0) / (omegaMax - 25.0)).clamp(0.0, 1.0);
+    heat = ui.lerpDouble(heat, targetHeat, dt * 3.0)!;
+  }
+
+  @override
+  void render(ui. Canvas canvas) {
+    canvas.save();
+    canvas.translate(size.x / 2, size.y / 2);
+
+    // 휘청거리는 기울기 적용
+    canvas.rotate(tilt);
+
+    // ✅ 일반 접시의 기본 납작도 (0.35)
+    // BowlPlate는 bowl.dart에서 0.6으로 직접 덮어쓰도록 유도합니다.
+    canvas.scale(1.0, 0.35);
+
+    // 수평 회전
+    canvas.rotate(angleRad);
+
+    sprite?.render(canvas, size: size, anchor: Anchor.center);
+
+    // 과열 효과
+    if (heat > 0.05) {
+      final overlay = Paint()
+        ..color = Colors.red.withValues(alpha: heat * 0.7)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 20 * heat);
+      canvas.drawCircle(Offset.zero, size.x / 2, overlay);
+    }
+    canvas.restore();
+  }
+}
+
+===== C:\Users\parki\spingo\lib\components\pole.dart =====
+
+// lib/components/pole.dart
+import 'package:flame/components.dart';
+import 'package:flame/game.dart';
+
+class Pole extends SpriteComponent with HasGameReference<FlameGame> {
+  final double targetHeight;
+
+  Pole({
+    required Vector2 position,
+    required this.targetHeight,
+  }) : super(
+    position: position,
+    size: Vector2(25, targetHeight), // 생성 시 두께 설정
+    anchor: Anchor.bottomCenter,
+    priority: 5,
+  );
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    sprite = await game.loadSprite('components/pole.png');
+
+    // ✅ 가로 두께를 45px로 확실히 넓혔습니다.
+    size = Vector2(45, targetHeight);
+  }
+}
+
+===== C:\Users\parki\spingo\lib\widgets\age_rating_banner.dart =====
+
+import 'dart:async';
+import 'package:flutter/material.dart';
+
+class AgeRatingBanner extends StatefulWidget {
+  const AgeRatingBanner({super.key});
+
+  @override
+  State<AgeRatingBanner> createState() => _AgeRatingBannerState();
+}
+
+class _AgeRatingBannerState extends State<AgeRatingBanner> {
+  bool _visible = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // 3초 뒤에 사라지도록 타이머
+    Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _visible = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 600),
+      opacity: _visible ? 1.0 : 0.0,
+      child: Align(
+        alignment: Alignment.topRight,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 18, right: 18),
+          child: Image.asset(
+            'assets/images/rating_all.png',
+            width: 80,
+            height: 80,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+===== C:\Users\parki\spingo\lib\widgets\exit_dialog.dart =====
+
+import 'package:flutter/material.dart';
+
+Future<void> showExitDialog(BuildContext context) async {
+  return showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: Colors.white,
+        title: const Text(
+          'SpinGo를 종료할까요?',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        actionsAlignment: MainAxisAlignment.spaceEvenly,
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('취소', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(0xFFF97316), // 브랜드 컬러
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Navigator.of(context).pop(); // 다이얼로그 닫기
+              Navigator.of(context).maybePop(); // 화면 종료
+            },
+            child: const Text('종료하기', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+===== C:\Users\parki\spingo\lib\intro.dart =====
+
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'sound_manager.dart';
+import 'l10n.dart';
+import '../widgets/age_rating_banner.dart';
+
+class IntroPage extends StatefulWidget {
+  // ⭐ 모드 번호를 전달할 수 있도록 콜백 함수 수정 (0: 일반, 1: 신나는, 2: 어르신)
+  final Function(int) onStartGame;
+
+  const IntroPage({super.key, required this.onStartGame});
+
+  @override
+  State<IntroPage> createState() => _IntroPageState();
+}
+
+class _IntroPageState extends State<IntroPage> {
+  int _index = 0;
+  String _typedText = "";
+  Timer? _typingTimer;
+  bool _showModeSelection = false; // ⭐ 모드 선택창 표시 여부
+
+  List<Map<String, String>> get _slides =>
+      [
+        {"image": "assets/images/intro1.png", "text": L10n.tr('intro1')},
+        {"image": "assets/images/intro2.png", "text": L10n.tr('intro2')},
+        {"image": "assets/images/intro3.png", "text": L10n.tr('intro3')},
+        {"image": "assets/images/intro4.png", "text": L10n.tr('intro4')},
+        {"image": "assets/images/intro5.png", "text": L10n.tr('intro5')},
+      ];
+
+  @override
+  void initState() {
+    super.initState();
+    SoundManager.requestWelcomeLoop();
+    _startTyping();
+  }
+
+  void _startTyping() {
+    _typingTimer?.cancel();
+    setState(() => _typedText = "");
+    final fullText = _slides[_index]["text"]!;
+    int charIndex = 0;
+    _typingTimer = Timer.periodic(const Duration(milliseconds: 60), (t) {
+      if (charIndex < fullText.length) {
+        setState(() {
+          _typedText += fullText[charIndex];
+        });
+        charIndex++;
+      } else {
+        t.cancel();
+      }
+    });
+  }
+
+  void _nextSlide() {
+    if (_index < _slides.length - 1) {
+      setState(() {
+        _index++;
+      });
+      _startTyping();
+    } else {
+      // ⭐ 마지막 슬라이드 이후 선택창을 보여줍니다.
+      setState(() => _showModeSelection = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _typingTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final slide = _slides[_index];
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // 배경 이미지
+          Positioned.fill(
+              child: Image.asset(slide["image"]!, fit: BoxFit.cover)),
+
+          // 텍스트 영역 (모드 선택창이 아닐 때만 표시)
+          if (!_showModeSelection)
+            Positioned(
+              left: MediaQuery
+                  .of(context)
+                  .size
+                  .width * 0.25,
+              bottom: 120,
+              right: 30,
+              child: Text(_typedText,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 25,
+                    fontWeight: FontWeight.bold,
+                  )),
+            ),
+
+          // 다음 화살표 (모드 선택창이 아닐 때만 표시)
+          if (!_showModeSelection)
+            Positioned(
+              right: 70,
+              top: MediaQuery
+                  .of(context)
+                  .size
+                  .height / 2 - 40,
+              child: GestureDetector(
+                onTap: _nextSlide,
+                child: const Text('>',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 72,
+                        fontWeight: FontWeight.bold,
+                        shadows: [
+                          Shadow(
+                              offset: Offset(2, 2),
+                              blurRadius: 5.0,
+                              color: Colors.black54),
+                        ])),
+              ),
+            ),
+
+          // ⭐ 모드 선택 오버레이
+          if (_showModeSelection)
+            Container(
+              color: Colors.black.withOpacity(0.8),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildModeButton(
+                      context,
+                      title: 'Beginner',
+                      desc: '0단계부터 하나씩',
+                      mode: 0,
+                    ),
+                    const SizedBox(height: 24),
+                    _buildModeButton(
+                      context,
+                      title: 'Expert',
+                      desc: '기록을 위한 도전',
+                      mode: 1,
+                      color: Colors.orangeAccent,
+                    ),
+                    const SizedBox(height: 24),
+                    _buildModeButton(
+                      context,
+                      title: 'Brain Booster',
+                      desc: '뇌 자극 모드',
+                      mode: 2,
+                      color: Colors.greenAccent,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // 하단 건너뛰기 버튼 (슬라이드 중에만 표시)
+          if (!_showModeSelection)
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 40),
+                child: ElevatedButton(
+                  onPressed: () => setState(() => _showModeSelection = true),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black54,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 30, vertical: 14)),
+                  child: Text(L10n.tr('skip'),
+                      style:
+                      const TextStyle(fontSize: 22, color: Colors.white)),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // 모드 선택 버튼 위젯
+  Widget _buildModeButton(BuildContext context,
+      {required String title,
+        required String desc,
+        required int mode,
+        Color color = Colors.amberAccent}) {
+    return InkWell(
+      onTap: () => widget.onStartGame(mode),
+      child: Container(
+        width: 400,
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+        decoration: BoxDecoration(
+          border: Border.all(color: color, width: 2),
+          borderRadius: BorderRadius.circular(15),
+          color: Colors.black87,
+        ),
+        child: Column(
+          children: [
+            Text(title,
+                style: TextStyle(
+                    fontSize: 26, color: color, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text(desc,
+                style: const TextStyle(fontSize: 16, color: Colors.white70)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+===== C:\Users\parki\spingo\lib\l10n.dart =====
+
+import 'language_manager.dart';
+
+class L10n {
+  static final _ko = <String, String>{
+    'game_title': 'SpinGo',
+    'start': '시작하기',
+    'confirm': '확인',
+    'register': '등록',
+    'retry': '다시 도전',
+    'exit': '나가기',
+    'leaderboard_title': '기록판 (Top 7)',
+    'enter_name_hint': '이름을 입력하세요 (한글 ≤5자, 영문/숫자 ≤12자)',
+    'congrats': '축하해! 기록을 세웠어 🎉',
+    'ai_tip_invalid_name': '형식이 맞지 않아요.',
+    'lang': 'Language',
+
+    // 인트로 슬라이드
+    'intro1': '재미없는 일상에 찌든 노총각 박봉식(41세) 과장은',
+    'intro2': '첫사랑을 닮은 그녀를 보며 불현듯 깨달았다.',
+    'intro3': '아직 못해본 일이 많다는 것을...',
+    'intro4': '\'서커스를 배우고 싶습니다.\'        \'쉽지 않을 텐데...\'',
+    'intro5': '\'뭐야, 저 녀석은?\'',
+
+    // 레벨 메시지
+    'lv1_msg': '나무를 비비면 접시가 돌아간다네.',
+    'lv1v_msg': '쟁반은 크지만 가벼워.',
+    'lv2_msg': '아슬아슬 할수록 관객들이 좋아 하지.',
+    'lv2t_msg': '여유를 가지면 시야가 넓어 진다네.',
+    'lv2v_msg': '사발은 작고 무거워!',
+    'lv2b_msg': '잘 돌지만 속도가 줄면 급격히 흔들리지.',
+    'lv3_msg': '조금만 능숙해지면 무대에 설 수도 있겠어.',
+    'lv3v_msg': '재능이 있구만. 거의 다 왔으니 힘 내라구.',
+    'lv4_msg': '이젠 실전이야. 무대에선 별일이 다 일어나지.',
+    'lv4v_msg': '좋았어. 이제부터는 기록 싸움이야.',
+
+    // 실패 메시지
+    'tip_fly_1': '너무 빨리 돌리면 날아간다고!',
+    'tip_fly_2': '욕심부리지 마!',
+    'tip_fly_3': '진정해, 한꺼번에 너무 많이 돌리지 마.',
+    'tip_fly_4': '접시는 헬리곱터가 아니야!',
+
+    'tip_fall_1': '한눈 팔지 말라구!',
+    'tip_fall_2': '대체 어디다 정신을 두고 있는 거야?',
+    'tip_fall_3': '생각보다 안 떨어진다고 방심하지 마!',
+    'tip_fall_4': '접시에 파리가 앉겠다!',
+  };
+
+  static final _en = <String, String>{
+    'game_title': 'SpinGo',
+    'start': 'Start',
+    'confirm': 'OK',
+    'register': 'Submit',
+    'retry': 'Retry',
+    'exit': 'Exit',
+    'leaderboard_title': 'Leaderboard (Top 7)',
+    'enter_name_hint': 'Enter your name (Korean ≤5 chars, Eng/Num ≤12)',
+    'congrats': 'Congrats! New record 🎉',
+    'ai_tip_invalid_name': 'Invalid format.',
+    'lang': 'Language',
+
+    // Intro slides
+    'intro1': 'Chief Bong-sik Park, weary of dull routines...',
+    'intro2': 'Seeing a woman like his first love, he realizes...',
+    'intro3': 'There’s still so much he hasn’t done...',
+    'intro4': '\'I want to learn circus.\'     \'It won’t be easy...\'',
+    'intro5': '\'Who is that guy?\'',
+
+    // Level messages
+    'lv1_msg': 'Rub the stick, and the plate will spin.',
+    'lv1v_msg': 'Trays are large but light.',
+    'lv2_msg': 'The riskier it gets, the louder the cheers.',
+    'lv2t_msg': 'Take your time — you’ll see the bigger picture.',
+    'lv2v_msg': 'Bowls are small and heavy!',
+    'lv2b_msg': 'They spin well but shake hard when slowing down.',
+    'lv3_msg': 'A little more skill and you’ll stand on stage.',
+    'lv3v_msg': 'You’ve got talent — almost there!',
+    'lv4_msg': 'Now it’s real — anything can happen on stage.',
+    'lv4v_msg': 'Good! From here, it’s all about records.',
+
+    // Failure messages
+    'tip_fly_1': 'Spin too fast and it’ll fly away!',
+    'tip_fly_2': 'Don’t get greedy!',
+    'tip_fly_3': 'Easy—don’t swipe too much at once.',
+    'tip_fly_4': 'A plate is not a helicopter!',
+
+    'tip_fall_1': 'Eyes on the plate!',
+    'tip_fall_2': 'Where’s your focus?',
+    'tip_fall_3': 'Don’t relax—plates fall when you least expect.',
+    'tip_fall_4': 'Move it, before a fly lands on it!',
+  };
+
+  static String tr(String key) {
+    final lang = LanguageManager.current.value;
+    final map = lang == AppLang.en ? _en : _ko;
+    return map[key] ?? _ko[key] ?? key;
+  }
+}
+
+===== C:\Users\parki\spingo\lib\language_manager.dart =====
+
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
+
+enum AppLang { ko, en }
+
+class LanguageManager {
+  static const _key = 'app_language';
+  static final ValueNotifier<AppLang> current = ValueNotifier<AppLang>(
+      AppLang.ko);
+
+  static Future<void> init() async {
+    final prefs = await SharedPreferences.getInstance();
+    final code = prefs.getString(_key);
+    if (code == 'en') {
+      current.value = AppLang.en;
+    } else {
+      current.value = AppLang.ko;
+    }
+  }
+
+  static Future<void> set(AppLang lang) async {
+    current.value = lang;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_key, lang == AppLang.en ? 'en' : 'ko');
+  }
+}
+
+===== C:\Users\parki\spingo\lib\levels.dart =====
+
+enum PlateType { normal, tray, bowl }
+
+class PlateSet {
+  final PlateType type;
+
+  PlateSet(this.type);
+}
+
+// ❌ 에러 해결: TransformSet 클래스가 없어서 발생한 에러를 위해 추가
+class TransformSet {
+  final PlateType to;
+
+  TransformSet(this.to);
+}
+
+class Level {
+  final int index;
+  final Duration duration;
+  final String background;
+  final String messageKey;
+  final List<PlateSet> sets;
+
+  // ❌ 에러 해결: 정의되지 않았던 매개변수들을 추가
+  final bool isVariation;
+  final List<TransformSet> transforms;
+
+  Level({
+    required this.index,
+    required this.duration,
+    required this.background,
+    required this.messageKey,
+    required this.sets,
+    this.isVariation = false, // 기본값 설정
+    this.transforms = const [], // 기본값 설정
+  });
+}
+
+final List<Level> beginnerLevels = [
+  Level(
+    index: 1,
+    duration: const Duration(seconds: 30),
+    background: "backimage1.png",
+    messageKey: "lv1_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.normal)
+    ],
+  ),
+  Level(
+    index: 1,
+    duration: const Duration(seconds: 30),
+    background: "backimage1.png",
+    messageKey: "lv1v_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.tray),
+      PlateSet(PlateType.normal),
+    ],
+    isVariation: true,
+    transforms: [TransformSet(PlateType.tray)],
+  ),
+  Level(
+    index: 2,
+    duration: const Duration(seconds: 40),
+    background: "backimage2.png",
+    messageKey: "lv2_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.tray),
+    ],
+  ),
+  Level(
+    index: 2,
+    duration: const Duration(seconds:40),
+    background: "backimage2.png",
+    messageKey: "lv2t_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.tray),
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.tray),
+    ],
+  ),
+  Level(
+    index: 2,
+    duration: const Duration(seconds: 50),
+    background: "backimage2.png",
+    messageKey: "lv2v_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.tray),
+      PlateSet(PlateType.bowl),
+    ],
+    isVariation: true,
+    transforms: [TransformSet(PlateType.bowl)],
+  ),
+  Level(
+    index: 2,
+    duration: const Duration(seconds: 60),
+    background: "backimage2.png",
+    messageKey: "lv2b_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.tray),
+      PlateSet(PlateType.tray),
+      PlateSet(PlateType.bowl),
+    ],
+  ),
+  Level(
+    index: 3,
+    duration: const Duration(seconds: 60),
+    background: "backimage3.png",
+    messageKey: "lv3_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.bowl),
+      PlateSet(PlateType.tray),
+      PlateSet(PlateType.tray),
+    ],
+  ),
+  Level(
+    index: 3,
+    duration: const Duration(seconds: 60),
+    background: "backimage3.png",
+    messageKey: "lv3v_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.bowl),
+      PlateSet(PlateType.bowl),
+      PlateSet(PlateType.tray),
+    ],
+    isVariation: true,
+    transforms: [TransformSet(PlateType.tray)],
+  ),
+  Level(
+    index: 4,
+    duration: const Duration(days: 90),
+    background: "backimage4.png",
+    messageKey: "lv4_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.bowl),
+      PlateSet(PlateType.bowl),
+      PlateSet(PlateType.tray),
+      PlateSet(PlateType.tray),
+    ],
+  ),
+  Level(
+    index: 4,
+    duration: const Duration(days: 99),
+    background: "backimage4.png",
+    messageKey: "lv4v_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.bowl),
+      PlateSet(PlateType.tray),
+      PlateSet(PlateType.tray),
+      PlateSet(PlateType.tray),
+    ],
+  ),
+];
+
+// ──────────────────────────────────────────────────────────────
+// 2단계: 무한 변형 모드 (5개 세트 고정, 1분 30초 간격)
+// ──────────────────────────────────────────────────────────────
+final List<Level> expertLevels = [
+  Level(index: 1,
+      duration: const Duration(seconds: 60),
+      background: "backimage2.png",
+      messageKey: "q_lv1",
+      sets: List.generate(5, (_) => PlateSet(PlateType.normal))),
+  Level(index: 2,
+      duration: const Duration(seconds: 60),
+      background: "backimage2.png",
+      messageKey: "q_lv2",
+      sets: [
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.tray)
+      ]),
+  Level(index: 3,
+      duration: const Duration(seconds: 60),
+      background: "backimage3.png",
+      messageKey: "q_lv3",
+      sets: [
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.tray),
+        PlateSet(PlateType.tray)
+      ]),
+  Level(index: 4,
+      duration: const Duration(seconds: 60),
+      background: "backimage3.png",
+      messageKey: "q_lv4",
+      sets: [
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.tray),
+        PlateSet(PlateType.tray),
+        PlateSet(PlateType.bowl)
+      ]),
+  Level(index: 5,
+      duration: const Duration(days: 99),
+      background: "backimage4.png",
+      messageKey: "q_lv5",
+      sets: [
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.tray),
+        PlateSet(PlateType.tray),
+        PlateSet(PlateType.bowl),
+        PlateSet(PlateType.bowl)
+      ]),
+];
+
+// ──────────────────────────────────────────────────────────────
+// 3단계: 구구단 실버 모드 (4개 세트 고정)
+// ──────────────────────────────────────────────────────────────
+final List<Level> brainBoosterLevels = [
+  Level(index: 1,
+      duration: const Duration(seconds: 120),
+      background: "backimage1.png",
+      messageKey: "s_lv1",
+      sets: List.generate(4, (_) => PlateSet(PlateType.normal))),
+  Level(index: 2,
+      duration: const Duration(seconds: 120),
+      background: "backimage2.png",
+      messageKey: "s_lv2",
+      sets: [
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.tray)
+      ]),
+  Level(index: 3,
+      duration: const Duration(days: 99),
+      background: "backimage4.png",
+      messageKey: "s_lv3",
+      sets: [
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.tray),
+        PlateSet(PlateType.bowl)
+      ]),
+];
+
+===== C:\Users\parki\spingo\lib\main.dart =====
+
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // ✅ 화면 방향 제어를 위해 반드시 필요
+import 'package:flame/game.dart';
+import 'dart:async';
+import 'package:confetti/confetti.dart';
+import 'plate_game.dart';
+import 'intro.dart';
+import 'sound_manager.dart';
+import 'language_manager.dart';
+
+void main() async {
+  // ✅ 플러터 엔진이 초기화될 때까지 대기
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // ✅ 가로 방향(Landscape)으로 고정 설정
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+
+  // ✅ 상태바 및 하단 네비게이션 바 숨기기 (몰입형 게임 모드)
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
+  SoundLifecycleObserver();
+  await LanguageManager.init();
+
+  runApp(const SpinGoApp());
+}
+
+class SoundLifecycleObserver extends WidgetsBindingObserver {
+  SoundLifecycleObserver() {
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // ⭐ 피선생님의 SoundManager에 stopBgm/requestMainLoop 등이 있으므로 그에 맞춤
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      SoundManager.stopBgm();
+    } else if (state == AppLifecycleState.resumed) {
+      SoundManager.requestMainLoop();
+    }
+  }
+}
+
+class SpinGoApp extends StatelessWidget {
+  const SpinGoApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<AppLang>(
+      valueListenable: LanguageManager.current,
+      builder: (context, lang, _) {
+        return MaterialApp(
+          title: 'SpinGo: The Immortal Circus',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            brightness: Brightness.dark,
+            // ✅ 한글 폰트 적용 (에셋에 폰트 파일이 있는지 확인 필수!)
+            fontFamily: lang == AppLang.ko ? 'NotoSansKR' : null,
+          ),
+          // ✅ 가로 화면 비율을 유지하기 위한 Wrapper
+          home: const GameMainWrapper(),
+        );
+      },
+    );
+  }
+}
+
+class GameMainWrapper extends StatefulWidget {
+
+  const GameMainWrapper({super.key});
+
+  @override
+  State<GameMainWrapper> createState() => _GameMainWrapperState();
+}
+
+class _GameMainWrapperState extends State<GameMainWrapper> {
+  late ConfettiController _confettiController;
+
+  bool _isStartScreen = true;
+  bool _isIntro = false;
+  int _selectedMode = 0;
+
+  // 애니메이션을 위한 변수들
+  String _displayTitle = "";
+  final String _fullTitle = "SpinGo";
+  bool _showButton = false;
+
+  void _onPressStart() {
+    setState(() {
+      _isStartScreen = false;
+      _isIntro = true;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // 2. 조종기 초기화 (2초 동안 발사하도록 설정)
+    _confettiController =
+        ConfettiController(duration: const Duration(seconds: 2));
+    _startTyping();
+  }
+
+  @override
+  void dispose() {
+    // 3. 화면이 꺼질 때 조종기도 종료 (메모리 관리)
+    _confettiController.dispose();
+    super.dispose();
+  }
+
+  void _startTyping() {
+    _displayTitle = "";
+    _showButton = false;
+    int index = 0;
+    Timer.periodic(const Duration(milliseconds: 200), (timer) {
+      if (index < _fullTitle.length) {
+        setState(() {
+          _displayTitle += _fullTitle[index];
+          index++;
+        });
+      } else {
+        timer.cancel();
+        setState(() => _showButton = true);
+        // 4. ✅ 글자가 다 나오면 폭죽 팡!
+        _confettiController.play();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isStartScreen) {
+      SoundManager.requestWelcomeLoop();
+
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          alignment: Alignment.center,
+          children: [
+            // 1. 배경 이미지: 옆이 잘리더라도 위아래를 꽉 맞춥니다.
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/welcome.png',
+                fit: BoxFit.fitHeight,
+              ),
+            ),
+
+            // 2. 최신 코드 반영 (withValues 사용)
+            Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.3)
+                  ],
+                ),
+              ),
+            ),
+
+            // 5. ✅ 폭죽을 화면 중앙에 배치
+            Align(
+              alignment: Alignment.center,
+              child: ConfettiWidget(
+                confettiController: _confettiController,
+                blastDirectionality: BlastDirectionality.explosive,
+                // 사방으로 발사
+                shouldLoop: false,
+                colors: const [
+                  Colors.red,
+                  Colors.blue,
+                  Colors.yellow,
+                  Colors.green,
+                  Colors.orange
+                ],
+                strokeWidth: 1,
+                strokeColor: Colors.white,
+              ),
+            ),
+
+            // 3. 타이틀 및 버튼
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // 'The Immortal Circus' 텍스트는 상혁 님 요청대로 제거했습니다.
+
+                  // 타자기 효과로 나타나는 SpinGo
+                  Text(
+                    _displayTitle,
+                    style: TextStyle(
+                      fontSize: 90,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 8,
+                      shadows: [
+                        Shadow(
+                            blurRadius: 20,
+                            color: Colors.red.withValues(alpha: 0.8)
+                        )
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 100), // 버튼과의 간격
+
+                  // 글자가 다 나오면 나타나는 시작하기 버튼
+                  if (_showButton)
+                    ElevatedButton(
+                      onPressed: _onPressStart,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 50, vertical: 20),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(40),
+                        ),
+                      ),
+                      child: const Text(
+                          '시작하기',
+                          style: TextStyle(fontSize: 28,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold)
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_isIntro) return IntroPage(onStartGame: (mode) =>
+        setState(() {
+          _selectedMode = mode;
+          _isIntro = false;
+        }));
+
+    // 3. 모드 선택 후 실제 게임 화면
+    return Scaffold(
+      body: GameWidget<PlateSpinGame>(
+        game: PlateSpinGame(
+          startMode: _selectedMode,
+          onExit: () => setState(() => _isStartScreen = true), // 종료 시 시작 화면으로
+        ),
+        overlayBuilderMap: {
+          HudOverlay.id: (context, game) => HudOverlay(game: game),
+          MathOverlay.id: (context, game) => MathOverlay(game: game),
+          NameEntryOverlay.id: (context, game) => NameEntryOverlay(game: game),
+          LeaderboardOverlay.id: (context, game) =>
+              LeaderboardOverlay(game: game),
+          GameOverOverlay.id: (context, game) => GameOverOverlay(game: game),
+        },
+        initialActiveOverlays: const [HudOverlay.id],
+      ),
+    );
+  }
+}
+
+===== C:\Users\parki\spingo\lib\plate_game.dart =====
+
+// lib/plate_game.dart
+import 'dart:async' as async;
+import 'dart:math';
+import 'package:flame/components.dart';
+import 'package:flame/events.dart';
+import 'package:flame/game.dart';
+import 'package:flame/effects.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:speech_to_text/speech_to_text.dart';
+import 'components/pole.dart';
+import 'components/plate.dart';
+import 'components/bowl.dart';
+import 'components/big_plate.dart';
+import 'levels.dart';
+import 'sound_manager.dart';
+import 'score_manager.dart';
+import 'language_manager.dart';
+import 'l10n.dart';
+import 'package:flame/text.dart';
+import 'dart:ui' as ui;
+
+late final TextPaint koreanText;
+
+Future<void> initFonts() async {
+  try {
+    final fontData = await rootBundle.load(
+        'assets/fonts/NotoSansKR-Regular.ttf');
+    final loader = FontLoader('NotoSansKR')
+      ..addFont(Future.value(fontData));
+    await loader.load();
+    koreanText = TextPaint(
+      style: const TextStyle(
+          fontFamily: 'NotoSansKR', color: ui.Color(0xFFFFFFFF), fontSize: 28),
+    );
+  } catch (e) {
+    debugPrint('[SpinGo] ⚠️ Font load failed: $e');
+  }
+}
+
+typedef TrayPlate = BigPlate;
+
+class MathOverlay extends StatelessWidget {
+  static const id = 'MathOverlay';
+  final PlateSpinGame game;
+
+  const MathOverlay({super.key, required this.game});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<String>(
+      valueListenable: game.problemNotifier,
+      builder: (context, problem, _) {
+        if (problem.isEmpty) return const SizedBox.shrink();
+        return Positioned(
+          top: 20,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 40, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.7),
+                    // ✅ Deprecated 해결
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.amberAccent, width: 2),
+                  ),
+                  child: Text(problem, style: const TextStyle(fontSize: 45,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white)),
+                ),
+                const SizedBox(height: 5),
+                ValueListenableBuilder<double>(
+                  valueListenable: game.timerNotifier,
+                  builder: (context, timerVal, _) {
+                    return SizedBox(width: 200,
+                        child: LinearProgressIndicator(
+                            value: timerVal, minHeight: 5));
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// 리더보드
+// ──────────────────────────────────────────────────────────────
+class LeaderboardOverlay extends StatelessWidget {
+  static const id = 'LeaderboardOverlay';
+  final PlateSpinGame game;
+
+  const LeaderboardOverlay({super.key, required this.game});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<ScoreEntry>>(
+      future: ScoreManager.load(),
+      builder: (context, snap) {
+        final entries = (snap.data ?? const <ScoreEntry>[]);
+
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Material(
+              color: Colors.black87,
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(L10n.tr('leaderboard_title'),
+                        style: const TextStyle(
+                            fontSize: 22, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 12),
+                    if (!snap.hasData)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: CircularProgressIndicator(),
+                      )
+                    else
+                      ...List.generate(entries.length, (i) {
+                        final e = entries[i];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              SizedBox(width: 32, child: Text('${i + 1}.')),
+                              Expanded(
+                                  child: Text(e.name,
+                                      overflow: TextOverflow.ellipsis)),
+                              Text('${e.score}'),
+                            ],
+                          ),
+                        );
+                      }),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          game.overlays.remove(LeaderboardOverlay.id);
+                          game.overlays.add(GameOverOverlay.id);
+                          game.pauseEngine();
+                        },
+                        child: Text(L10n.tr('confirm')),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// 이름 입력
+// ──────────────────────────────────────────────────────────────
+class NameEntryOverlay extends StatefulWidget {
+  static const id = 'NameEntryOverlay';
+  final PlateSpinGame game;
+
+  const NameEntryOverlay({super.key, required this.game});
+
+  @override
+  State<NameEntryOverlay> createState() => _NameEntryOverlayState();
+}
+
+class _NameEntryOverlayState extends State<NameEntryOverlay> {
+  final _controller = TextEditingController(text: 'me');
+  String? _error;
+
+  bool _valid(String s) {
+    final runes = s.runes.toList();
+    final isKorean = runes.any((cp) => (cp >= 0xAC00 && cp <= 0xD7A3));
+    if (isKorean) return runes.length <= 5;
+    final ascii = RegExp(r'^[A-Za-z0-9 ]{1,12}$');
+    return ascii.hasMatch(s);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final game = widget.game;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Material(
+          color: Colors.black87,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(L10n.tr('congrats'),
+                    style: const TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 10),
+                Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(L10n.tr('enter_name_hint'))),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _controller,
+                  autofocus: true,
+                  maxLength: 12,
+                  decoration: const InputDecoration(
+                    filled: true,
+                    fillColor: Colors.black54,
+                    border: OutlineInputBorder(),
+                    counterText: '',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final name = _controller.text.trim();
+                      if (name.isEmpty || !_valid(name)) {
+                        setState(() =>
+                        _error = L10n.tr('ai_tip_invalid_name'));
+                        return;
+                      }
+                      await ScoreManager.addIfTop7(
+                          ScoreEntry(name, game.currentScore));
+                      game.overlays.remove(NameEntryOverlay.id);
+                      game.overlays.add(LeaderboardOverlay.id);
+                    },
+                    child: Text(L10n.tr('register')),
+                  ),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 6),
+                  Text(_error!,
+                      style: const TextStyle(color: Colors.redAccent)),
+                ]
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// HUD (음소거, 언어)
+// ──────────────────────────────────────────────────────────────
+class HudOverlay extends StatefulWidget {
+  static const id = 'HudOverlay';
+  final PlateSpinGame game;
+
+  const HudOverlay({super.key, required this.game});
+
+  @override
+  State<HudOverlay> createState() => _HudOverlayState();
+}
+
+class _HudOverlayState extends State<HudOverlay> {
+  bool _muted = SoundManager.isMuted;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topRight,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 50, right: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.black54,
+                    minimumSize: const Size(48, 40)),
+                onPressed: () async {
+                  await SoundManager.toggleMute();
+                  setState(() => _muted = SoundManager.isMuted);
+                },
+                child: Text(
+                    _muted ? '🔇' : '🔊', style: const TextStyle(fontSize: 18)),
+              ),
+              const SizedBox(height: 6),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.black54,
+                    minimumSize: const Size(48, 36)),
+                onPressed: () async {
+                  final selected = await showDialog<AppLang>(
+                    context: context,
+                    builder: (ctx) =>
+                        AlertDialog(
+                          backgroundColor: Colors.black87,
+                          title: Text(L10n.tr('lang')),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              RadioListTile<AppLang>(
+                                value: AppLang.ko,
+                                groupValue: LanguageManager.current.value,
+                                onChanged: (v) => Navigator.pop(ctx, v),
+                                title: const Text('한국어'),
+                              ),
+                              RadioListTile<AppLang>(
+                                value: AppLang.en,
+                                groupValue: LanguageManager.current.value,
+                                onChanged: (v) => Navigator.pop(ctx, v),
+                                title: const Text('English'),
+                              ),
+                            ],
+                          ),
+                        ),
+                  );
+                  if (selected != null) {
+                    await LanguageManager.set(selected);
+                    if (mounted) setState(() {});
+                  }
+                },
+                child: Text(L10n.tr('lang')),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// GameOverOverlay
+// ──────────────────────────────────────────────────────────────
+class GameOverOverlay extends StatelessWidget {
+  static const id = 'GameOverOverlay';
+  final PlateSpinGame game;
+
+  const GameOverOverlay({super.key, required this.game});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned.fill(
+            child: IgnorePointer(
+                child: Container(color: Colors.black.withValues(alpha:0.35)))),
+        Positioned.fill(
+          child: Center(
+            child: Image.asset('assets/images/game_over.png',
+                fit: BoxFit.fitHeight, alignment: Alignment.center),
+          ),
+        ),
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: 16,
+          child: SafeArea(
+            top: false,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                SizedBox(
+                  width: 180,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      game.overlays.remove(GameOverOverlay.id);
+                      game.onExit?.call();
+                    },
+                    child: Text(L10n.tr('retry')),
+                  ),
+                ),
+                SizedBox(
+                  width: 180,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      game.overlays.remove(GameOverOverlay.id);
+                      SystemNavigator.pop();
+                    },
+                    child: Text(L10n.tr('exit')),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// ⚙️ PlateSpinGame 본체 (최종 완성본)
+// ──────────────────────────────────────────────────────────────
+class PlateSpinGame extends FlameGame with PanDetector {
+  final int startMode;
+  final VoidCallback? onExit;
+  final problemNotifier = ValueNotifier<String>("");
+  final timerNotifier = ValueNotifier<double>(0);
+  final SpeechToText _speech = SpeechToText();
+
+  PlateSpinGame({this.onExit, this.startMode = 0});
+
+  List<Level> get _currentLevelList {
+    if (startMode == 1) return expertLevels;
+    if (startMode == 2) return brainBoosterLevels;
+    return beginnerLevels;
+  }
+
+  async.Timer? _levelTimer;
+  int _levelIndex = 0;
+  int remainingSeconds = 0;
+  SpriteComponent? _bg;
+  final List<Component> _decor = [];
+  final List<Plate> _plates = [];
+  final List<Pole> _poles = [];
+  int _attemptsLeft = 3;
+  SpriteComponent? _lifeIcon;
+  TextComponent? _lifeText;
+  bool _isGameOver = false;
+  bool _isRespawning = false;
+  bool _inCutscene = false;
+  double _cutsceneLeft = 0.0;
+  double _respawnCooldown = 0.0;
+  TextComponent? _levelMsg;
+  int _score = 0;
+
+  int get currentScore => _score;
+  double _levelTime = 0.0;
+  double _tickAccum = 0.0;
+  TextComponent? _scoreText;
+  double _swipeAccum = 0.0;
+  final double _swipeUnit = 120.0;
+  bool _lastFailWasFly = false;
+  TextComponent? _tipText;
+
+  bool _isSilverMode = false;
+  int? _currentAnswer;
+  double _missionTimer = 0;
+  final double _baseLimit = 7.0;
+  int _consecutiveCorrect = 0;
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    await images.loadAll([
+      'backimage1.png',
+      'backimage2.png',
+      'backimage3.png',
+      'backimage4.png',
+      'game_over.png',
+      'guide.png',
+      'plate.png',
+      'components/plate_blue.png',
+      'components/plate_red.png',
+      'components/plate_yellow.png',
+      'components/plate_green.png',
+      'components/plate_orange.png',
+      'components/bowl.png',
+      'components/bigPlate1.png',
+      'components/bigPlate2.png',
+      'components/pole.png',
+    ]);
+    await SoundManager.requestMainLoop();
+    await initFonts();
+
+    if (startMode == 1 || startMode == 2) {
+      _levelIndex = 0;
+      if (startMode == 2) {
+        _isSilverMode = true;
+        overlays.add(MathOverlay.id);
+        async.Timer(const Duration(seconds: 2), _generateMathProblem);
+      }
+    }
+    _applyLevel(_currentLevelList[_levelIndex]);
+    _initLivesUI();
+    _initScoreUI();
+    overlays.add(HudOverlay.id);
+  }
+
+  void _startListening() async {
+    try {
+      bool available = await _speech.initialize();
+      if (available) {
+        _speech.listen(
+          onResult: (result) {
+            String voice = result.recognizedWords;
+            if (_currentAnswer != null &&
+                voice.contains(_currentAnswer.toString())) {
+              _onMathSuccess();
+            }
+          },
+          // ✅ 'options' 매개변수 대신 직접 listenMode를 지원하는 버전이거나,
+          // 지원하지 않는 구버전일 수 있으므로 가장 안전한 기본 호출 방식으로 변경합니다.
+          listenFor: const Duration(seconds: 5),
+          localeId: "ko_KR",
+        );
+      }
+    } catch (e) {
+      debugPrint('Speech initialization failed: $e');
+    }
+  }
+
+  void _generateMathProblem() {
+    if (!_isSilverMode || _isGameOver) return;
+    final random = Random();
+    int a = random.nextInt(8) + 2;
+    int b = random.nextInt(9) + 1;
+    _currentAnswer = a * b;
+    problemNotifier.value = "$a × $b = ?";
+    _missionTimer = _baseLimit - (_consecutiveCorrect * 0.2).clamp(0, 4.0);
+    _startListening();
+  }
+
+  void _onMathSuccess() {
+    _score += 200;
+    _scoreText?.text = "Score: $_score";
+    problemNotifier.value = "O";
+    _currentAnswer = null;
+    async.Timer(const Duration(seconds: 1), _generateMathProblem);
+  }
+
+  void _onMathFail() {
+    problemNotifier.value = "X";
+    _currentAnswer = null;
+    async.Timer(const Duration(seconds: 1), _generateMathProblem);
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    if (_isGameOver) return;
+    if (_isSilverMode && _currentAnswer != null) {
+      _missionTimer -= dt;
+      timerNotifier.value = (_missionTimer / _baseLimit).clamp(0, 1);
+      if (_missionTimer <= 0) _onMathFail();
+    }
+    if (_inCutscene) {
+      _cutsceneLeft -= dt;
+      if (_cutsceneLeft <= 0) {
+        _inCutscene = false;
+        _levelMsg?.removeFromParent();
+        _levelMsg = null;
+        _setupPlates(_currentLevelList[_levelIndex]);
+        _respawnCooldown = 0.2;
+      }
+      return;
+    }
+    if (_respawnCooldown > 0) {
+      _respawnCooldown -= dt;
+      return;
+    }
+    if (_plates.isEmpty) {
+      _failAndRespawnOrGameOver();
+      return;
+    }
+    _levelTime += dt;
+    _tickAccum += dt;
+    while (_tickAccum >= 0.1) {
+      _addScore(1);
+      _tickAccum -= 0.1;
+    }
+    for (final p in _plates) {
+      if (p.gameOver) {
+        _lastFailWasFly = p.flyingAway;
+        _failAndRespawnOrGameOver();
+        return;
+      }
+      _updateBackgroundHeat();
+    }
+  }
+
+  void _nextLevel() {
+    _cancelTimer();
+    _addScore(_levelTime <= 60 ? 500 : (_levelTime <= 120 ? 300 : 100));
+    _levelTime = 0.0;
+    _levelIndex++;
+    if (_levelIndex >= _currentLevelList.length) {
+      gameOver();
+    } else {
+      _applyLevel(_currentLevelList[_levelIndex]);
+    }
+  }
+
+  void _failAndRespawnOrGameOver() {
+    if (_isGameOver || _isRespawning) return;
+    _isRespawning = true;
+    _attemptsLeft--;
+    _updateLifeUI();
+    SoundManager.playSfxSafe("crowd.wav");
+    if (_attemptsLeft > 0) {
+      _showTipFor(const Duration(seconds: 3));
+      _respawnCooldown = 3.0;
+      async.Timer(const Duration(seconds: 3), () {
+        _tipText?.removeFromParent();
+        _tipText = null;
+        _applyLevel(_currentLevelList[_levelIndex]);
+        _respawnCooldown = 0.35;
+        _isRespawning = false;
+        SoundManager.requestMainLoop();
+      });
+    } else {
+      gameOver();
+    }
+  }
+
+  void gameOver() {
+    if (_isGameOver) return;
+    _isGameOver = true;
+    _cancelTimer();
+    SoundManager.stopBgm();
+    pauseEngine();
+    ScoreManager.qualifies(_score).then((ok) =>
+        overlays.add(ok ? NameEntryOverlay.id : LeaderboardOverlay.id));
+  }
+
+  void _addScore(int amount) {
+    _score += amount;
+    _scoreText?.text = "Score: $_score";
+  }
+
+  void _updateLifeUI() {
+    _lifeText?.text = "×${(_attemptsLeft - 1).clamp(0, 99)}";
+  }
+
+  void _cancelTimer() {
+    _levelTimer?.cancel();
+    _levelTimer = null;
+  }
+
+  void _clearDecor() {
+    for (final c in _decor)
+      c.removeFromParent();
+    _decor.clear();
+  }
+
+  void _clearPlates() {
+    for (final p in _plates)
+      p.removeFromParent();
+    _plates.clear();
+  }
+
+  void _applyLevel(Level level) {
+    _cancelTimer();
+    _clearDecor();
+    _clearPlates();
+    _poles.clear();
+    _bg?.removeFromParent();
+    _bg = SpriteComponent(sprite: Sprite(images.fromCache(level.background)),
+        size: size,
+        priority: -1);
+    add(_bg!);
+
+    if (startMode == 0) {
+      _inCutscene = true;
+      _cutsceneLeft = 2.0;
+      _levelMsg?.removeFromParent();
+      _levelMsg = TextComponent(text: L10n.tr(level.messageKey),
+          anchor: Anchor.center,
+          position: Vector2(size.x / 2, size.y / 4),
+          textRenderer: koreanText);
+      add(_levelMsg!);
+    } else {
+      _inCutscene = false;
+      _setupPlates(level);
+    }
+
+    remainingSeconds = level.duration.inSeconds;
+    if (remainingSeconds < 1000000) {
+      _levelTimer = async.Timer.periodic(const Duration(seconds: 1), (t) {
+        remainingSeconds--;
+        if (remainingSeconds <= 0) {
+          t.cancel();
+          _levelTimer = null;
+          _nextLevel();
+        }
+      });
+    }
+  }
+
+  void _setupPlates(Level level) {
+    _clearDecor();
+    _clearPlates();
+    _poles.clear();
+
+    final count = level.sets.length;
+
+    // ✅ [수정] 막대기 위치 후보들을 미리 만듭니다.
+    final List<double> xPositions = [];
+    final spacing = size.x / (count + 1);
+    for (int i = 0; i < count; i++) {
+      xPositions.add(spacing * (i + 1));
+    }
+
+    // ✅ [핵심 1] 막대기 위치를 랜덤으로 섞습니다.
+    xPositions.shuffle();
+
+    final plateImages = [
+      'components/plate_blue.png',
+      'components/plate_yellow.png',
+      'components/plate_red.png',
+      'components/plate_green.png',
+      'components/plate_orange.png'
+    ];
+
+    for (int i = 0; i < count; i++) {
+      final x = xPositions[i]; // 섞인 위치 사용
+      final pivotY = size.y / 2.2;
+
+      final pole = Pole(
+          position: Vector2(x, size.y), targetHeight: (size.y - pivotY).abs())
+        ..priority = 0;
+      add(pole);
+      _decor.add(pole);
+      _poles.add(pole);
+
+      final type = level.sets[i].type;
+      Plate plate;
+
+      if (type == PlateType.tray) {
+        // ✅ [핵심 2] 큰 접시 이미지도 1, 2 중 랜덤 선택
+        final trayImg = (Random().nextBool())
+            ? 'bigPlate1.png'
+            : 'bigPlate2.png';
+        plate = BigPlate(
+            center: Vector2(x, pivotY), imagePath: 'components/$trayImg');
+      } else if (type == PlateType.bowl) {
+        plate = BowlPlate(center: Vector2(x, pivotY))
+          ..omega = 30;
+      } else {
+        // ✅ [핵심 3] 일반 접시 색상(이미지)을 랜덤하게 선택
+        final randomImg = plateImages[Random().nextInt(plateImages.length)];
+        plate = Plate(center: Vector2(x, pivotY), imagePath: randomImg);
+      }
+
+      plate.priority = 1;
+      add(plate);
+      _plates.add(plate);
+    }
+    _respawnCooldown = 0.35;
+    _isRespawning = false;
+  }
+
+  void _initLivesUI() {
+    _lifeIcon?.removeFromParent();
+    _lifeText?.removeFromParent();
+    _lifeIcon = SpriteComponent(sprite: Sprite(images.fromCache('plate.png')),
+        size: Vector2(40, 40),
+        position: Vector2(20, size.y - 60),
+        anchor: Anchor.topLeft,
+        priority: 3000);
+    add(_lifeIcon!);
+    _lifeText = TextComponent(text: "×${(_attemptsLeft - 1).clamp(0, 99)}",
+        anchor: Anchor.topLeft,
+        position: Vector2(70, size.y - 55),
+        textRenderer: koreanText,
+        priority: 3001);
+    add(_lifeText!);
+  }
+
+  void _initScoreUI() {
+    _scoreText?.removeFromParent();
+    _scoreText = TextComponent(text: "Score: 0",
+        anchor: Anchor.topRight,
+        position: Vector2(size.x - 100, 20),
+        textRenderer: koreanText,
+        priority: 3002);
+    add(_scoreText!);
+  }
+
+  void _showTipFor(Duration dur) {
+    final tipList = _lastFailWasFly ? [
+      L10n.tr('tip_fly_1'),
+      L10n.tr('tip_fly_2')
+    ] : [L10n.tr('tip_fall_1'), L10n.tr('tip_fall_2')];
+    final tip = (tipList..shuffle()).first;
+    _tipText?.removeFromParent();
+    _tipText = TextComponent(text: tip,
+        anchor: Anchor.center,
+        position: Vector2(size.x / 2, size.y * 0.25),
+        textRenderer: koreanText,
+        priority: 4000);
+    add(_tipText!);
+  }
+
+  @override
+  void onPanUpdate(DragUpdateInfo info) {
+    if (_isGameOver || _inCutscene || _isRespawning) return;
+    final pos = info.eventPosition.global;
+    Plate? nearestPlate;
+    Pole? nearestPole;
+    double minDist = double.infinity;
+
+    for (int i = 0; i < _plates.length; i++) {
+      final p = _plates[i];
+      final d = p.position.distanceTo(pos);
+      if (d < minDist) {
+        minDist = d;
+        nearestPlate = p;
+        nearestPole = _poles[i];
+      }
+    }
+
+    if (nearestPlate != null && nearestPole != null) {
+      final input = info.delta.global.length.clamp(0, 60).toDouble();
+      if (input <= 0) return;
+      nearestPlate.boost(input);
+      if (nearestPole.children
+          .whereType<RotateEffect>()
+          .isEmpty) {
+        nearestPole.add(
+            RotateEffect.by(0.005, SineEffectController(period: 0.1)));
+      }
+      nearestPole.add(
+          RotateEffect.by(0.01, SineEffectController(period: 0.08)));
+      _swipeAccum += input;
+      if (_swipeAccum >= _swipeUnit) {
+        _addScore(10 * (_swipeAccum ~/ _swipeUnit));
+        _swipeAccum %= _swipeUnit;
+      }
+    }
+  }
+
+  void _updateBackgroundHeat() {
+    // 기존 heat 로직 필요 시 추가
+  }
+}
+
+===== C:\Users\parki\spingo\lib\score_manager.dart =====
+
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class ScoreEntry {
+  final String name;
+  final int score;
+  ScoreEntry(this.name, this.score);
+
+  Map<String, dynamic> toJson() => {'name': name, 'score': score};
+  static ScoreEntry fromJson(Map<String, dynamic> j) => ScoreEntry(j['name'] as String, j['score'] as int);
+}
+
+class ScoreManager {
+  static const _key = 'leaderboard_top7';
+
+  static Future<List<ScoreEntry>> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final s = prefs.getString(_key);
+    if (s == null) return [];
+    final List list = jsonDecode(s);
+    return list.map((e) => ScoreEntry.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  static Future<void> save(List<ScoreEntry> items) async {
+    final prefs = await SharedPreferences.getInstance();
+    final s = jsonEncode(items.map((e) => e.toJson()).toList());
+    await prefs.setString(_key, s);
+  }
+
+  static Future<List<ScoreEntry>> addIfTop7(ScoreEntry entry) async {
+    final items = await load();
+    items.add(entry);
+    items.sort((a, b) => b.score.compareTo(a.score)); // desc
+    final top7 = items.take(7).toList();
+    await save(top7);
+    return top7;
+  }
+
+  static Future<bool> qualifies(int score) async {
+    final items = await load();
+    if (items.length < 7) return true;
+    final worst = items.last.score;
+    return score > worst;
+  }
+}
+
+===== C:\Users\parki\spingo\lib\sound_manager.dart =====
+
+// lib/sound_manager.dart
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/widgets.dart';
+
+/// 게임 전역 사운드 매니저 (audioplayers ^6.x)
+class SoundManager {
+  static final AudioPlayer _bgm = AudioPlayer();
+  static String? _currentBgm; // 현재 세팅된 BGM 파일명
+  static bool _muted = false;
+
+  static bool get isMuted => _muted;
+
+  static Future<void> _initOnce() async {
+    await _bgm.setReleaseMode(ReleaseMode.loop);
+    await _bgm.setVolume(_muted ? 0.0 : 1.0);
+  }
+
+  /// 내부 공통: 주어진 파일을 루프로 "확실히" 재생
+  static Future<void> _startLoop(String file) async {
+    await _initOnce();
+    await _bgm.stop();
+    if (_currentBgm != file) {
+      // 루프 BGM은 존재한다고 가정(필요시 안전 체크 추가 가능)
+      await _bgm.setSource(AssetSource('audio/$file'));
+      _currentBgm = file;
+    }
+    await _bgm.setReleaseMode(ReleaseMode.loop);
+    await _bgm.setVolume(_muted ? 0.0 : 1.0);
+    await _bgm.resume();
+  }
+
+  static Future<void> requestWelcomeLoop() => _startLoop('welcome.mp3');
+
+  static Future<void> requestMainLoop() => _startLoop('main.mp3');
+
+  static Future<void> stopBgm() async {
+    await _bgm.stop();
+  }
+
+  static Future<void> toggleMute() async {
+    _muted = !_muted;
+    await _bgm.setVolume(_muted ? 0.0 : 1.0);
+  }
+
+  // ───────────────────────────────────────────────────────────
+  //             🔒 안전한 효과음 재생 유틸
+  // ───────────────────────────────────────────────────────────
+
+  /// 에셋 존재 여부 확인 (assets/ 접두어 자동 부착)
+  static Future<bool> _assetExists(String relPathFromAssets) async {
+    try {
+      await rootBundle.load('assets/$relPathFromAssets');
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 효과음 1회 재생(안전): 파일이 없으면 조용히 무시(크래시 방지)
+  static Future<void> playSfxSafe(String file, {double volume = 1.0}) async {
+    final rel = 'audio/$file';
+    final exists = await _assetExists(rel);
+    if (!exists) {
+      debugPrint('[SoundManager] SFX not found: assets/$rel (silenced)');
+      return;
+    }
+    final p = AudioPlayer();
+    await p.setReleaseMode(ReleaseMode.stop);
+    await p.setVolume(_muted ? 0.0 : volume.clamp(0.0, 1.0));
+    await p.play(AssetSource(rel));
+  }
+
+  /// 효과음 1회 재생(폴백): primary 없으면 fallback 시도, 그것도 없으면 무음
+  static Future<void> playSfxWithFallback(String primary, {
+    String? fallback,
+    double volume = 1.0,
+  }) async {
+    final relPrimary = 'audio/$primary';
+    if (await _assetExists(relPrimary)) {
+      return playSfxSafe(primary, volume: volume);
+    }
+    if (fallback != null) {
+      final relFallback = 'audio/$fallback';
+      if (await _assetExists(relFallback)) {
+        return playSfxSafe(fallback, volume: volume);
+      }
+    }
+    debugPrint('[SoundManager] SFX not found: $primary'
+        '${fallback != null ? ' (and fallback: $fallback)' : ''}. Silenced.');
+  }
+
+  /// (기존 간단 버전) 효과음 1회 재생 — 파일 없으면 예외 날 수 있음
+  /// 가능하면 playSfxSafe / playSfxWithFallback 사용 권장
+  static Future<void> playSfx(String file, {double volume = 1.0}) async {
+    final p = AudioPlayer();
+    await p.setReleaseMode(ReleaseMode.stop);
+    await p.setVolume(_muted ? 0.0 : volume.clamp(0.0, 1.0));
+    await p.play(AssetSource('audio/$file'));
+  }
+}
+
+class SoundLifecycleObserver with WidgetsBindingObserver {
+  SoundLifecycleObserver() {
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      SoundManager.stopBgm(); // 앱 백그라운드 시 즉시 정지
+    } else if (state == AppLifecycleState.resumed) {
+      // 복귀 시 재개하지 않음 (심사 요구사항)
+    }
+  }
+
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+  }
+}

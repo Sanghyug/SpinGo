@@ -1,0 +1,2508 @@
+﻿
+===== C:\Users\parki\spingo\lib\intro.dart =====
+
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'sound_manager.dart';
+import 'l10n.dart';
+import '../widgets/age_rating_banner.dart';
+
+class IntroPage extends StatefulWidget {
+  // 狩?紐⑤뱶 踰덊샇瑜??꾨떖?????덈룄濡?肄쒕갚 ?⑥닔 ?섏젙 (0: ?쇰컲, 1: ?좊굹?? 2: ?대Ⅴ??
+  final Function(int) onStartGame;
+
+  const IntroPage({super.key, required this.onStartGame});
+
+  @override
+  State<IntroPage> createState() => _IntroPageState();
+}
+
+class _IntroPageState extends State<IntroPage> {
+  int _index = 0;
+  String _typedText = "";
+  Timer? _typingTimer;
+  bool _showModeSelection = false; // 狩?紐⑤뱶 ?좏깮李??쒖떆 ?щ?
+
+  List<Map<String, String>> get _slides =>
+      [
+        {"image": "assets/images/intro1.png", "text": L10n.tr('intro1')},
+        {"image": "assets/images/intro2.png", "text": L10n.tr('intro2')},
+        {"image": "assets/images/intro3.png", "text": L10n.tr('intro3')},
+        {"image": "assets/images/intro4.png", "text": L10n.tr('intro4')},
+        {"image": "assets/images/intro5.png", "text": L10n.tr('intro5')},
+      ];
+
+  @override
+  void initState() {
+    super.initState();
+    SoundManager.requestWelcomeLoop();
+    _startTyping();
+  }
+
+  void _startTyping() {
+    _typingTimer?.cancel();
+    setState(() => _typedText = "");
+    final fullText = _slides[_index]["text"]!;
+    int charIndex = 0;
+    _typingTimer = Timer.periodic(const Duration(milliseconds: 60), (t) {
+      if (charIndex < fullText.length) {
+        setState(() {
+          _typedText += fullText[charIndex];
+        });
+        charIndex++;
+      } else {
+        t.cancel();
+      }
+    });
+  }
+
+  void _nextSlide() {
+    if (_index < _slides.length - 1) {
+      setState(() {
+        _index++;
+      });
+      _startTyping();
+    } else {
+      // 狩?留덉?留??щ씪?대뱶 ?댄썑 ?좏깮李쎌쓣 蹂댁뿬以띾땲??
+      setState(() => _showModeSelection = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _typingTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final slide = _slides[_index];
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // 諛곌꼍 ?대?吏
+          Positioned.fill(
+              child: Image.asset(slide["image"]!, fit: BoxFit.cover)),
+
+          // ?띿뒪???곸뿭 (紐⑤뱶 ?좏깮李쎌씠 ?꾨땺 ?뚮쭔 ?쒖떆)
+          if (!_showModeSelection)
+            Positioned(
+              left: MediaQuery
+                  .of(context)
+                  .size
+                  .width * 0.25,
+              bottom: 120,
+              right: 30,
+              child: Text(_typedText,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 25,
+                    fontWeight: FontWeight.bold,
+                  )),
+            ),
+
+          // ?ㅼ쓬 ?붿궡??(紐⑤뱶 ?좏깮李쎌씠 ?꾨땺 ?뚮쭔 ?쒖떆)
+          if (!_showModeSelection)
+            Positioned(
+              right: 70,
+              top: MediaQuery
+                  .of(context)
+                  .size
+                  .height / 2 - 40,
+              child: GestureDetector(
+                onTap: _nextSlide,
+                child: const Text('>',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 72,
+                        fontWeight: FontWeight.bold,
+                        shadows: [
+                          Shadow(
+                              offset: Offset(2, 2),
+                              blurRadius: 5.0,
+                              color: Colors.black54),
+                        ])),
+              ),
+            ),
+
+          // 狩?紐⑤뱶 ?좏깮 ?ㅻ쾭?덉씠
+          if (_showModeSelection)
+            Container(
+              color: Colors.black.withOpacity(0.8),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildModeButton(
+                      context,
+                      title: 'Beginner',
+                      desc: '0?④퀎遺???섎굹??,
+                      mode: 0,
+                    ),
+                    const SizedBox(height: 24),
+                    _buildModeButton(
+                      context,
+                      title: 'Expert',
+                      desc: '湲곕줉???꾪븳 ?꾩쟾',
+                      mode: 1,
+                      color: Colors.orangeAccent,
+                    ),
+                    const SizedBox(height: 24),
+                    _buildModeButton(
+                      context,
+                      title: 'Brain Booster',
+                      desc: '???먭레 紐⑤뱶',
+                      mode: 2,
+                      color: Colors.greenAccent,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // ?섎떒 嫄대꼫?곌린 踰꾪듉 (?щ씪?대뱶 以묒뿉留??쒖떆)
+          if (!_showModeSelection)
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 40),
+                child: ElevatedButton(
+                  onPressed: () => setState(() => _showModeSelection = true),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black54,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 30, vertical: 14)),
+                  child: Text(L10n.tr('skip'),
+                      style:
+                      const TextStyle(fontSize: 22, color: Colors.white)),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // 紐⑤뱶 ?좏깮 踰꾪듉 ?꾩젽
+  Widget _buildModeButton(BuildContext context,
+      {required String title,
+        required String desc,
+        required int mode,
+        Color color = Colors.amberAccent}) {
+    return InkWell(
+      onTap: () => widget.onStartGame(mode),
+      child: Container(
+        width: 400,
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+        decoration: BoxDecoration(
+          border: Border.all(color: color, width: 2),
+          borderRadius: BorderRadius.circular(15),
+          color: Colors.black87,
+        ),
+        child: Column(
+          children: [
+            Text(title,
+                style: TextStyle(
+                    fontSize: 26, color: color, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text(desc,
+                style: const TextStyle(fontSize: 16, color: Colors.white70)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+===== C:\Users\parki\spingo\lib\l10n.dart =====
+
+import 'language_manager.dart';
+
+class L10n {
+  static final _ko = <String, String>{
+    'game_title': 'SpinGo',
+    'start': '?쒖옉?섍린',
+    'confirm': '?뺤씤',
+    'register': '?깅줉',
+    'retry': '?ㅼ떆 ?꾩쟾',
+    'exit': '?섍?湲?,
+    'leaderboard_title': '湲곕줉??(Top 7)',
+    'enter_name_hint': '?대쫫???낅젰?섏꽭??(?쒓? ???? ?곷Ц/?レ옄 ??2??',
+    'congrats': '異뺥븯?? 湲곕줉???몄썱???럦',
+    'ai_tip_invalid_name': '?뺤떇??留욎? ?딆븘??',
+    'lang': 'Language',
+
+    // ?명듃濡??щ씪?대뱶
+    'intro1': '?щ??녿뒗 ?쇱긽??李뚮뱺 ?몄킑媛?諛뺣큺??41?? 怨쇱옣?',
+    'intro2': '泥レ궗?묒쓣 ??? 洹몃?瑜?蹂대ŉ 遺덊쁽??源⑤떖?섎떎.',
+    'intro3': '?꾩쭅 紐삵빐蹂??쇱씠 留롫떎??寃껋쓣...',
+    'intro4': '\'?쒖빱?ㅻ? 諛곗슦怨??띠뒿?덈떎.\'        \'?쎌? ?딆쓣 ?먮뜲...\'',
+    'intro5': '\'萸먯빞, ? ??앹??\'',
+
+    // ?덈꺼 硫붿떆吏
+    'lv1_msg': '?섎Т瑜?鍮꾨퉬硫??묒떆媛 ?뚯븘媛꾨떎??',
+    'lv1v_msg': '?곷컲? ?ъ?留?媛踰쇱썙.',
+    'lv2_msg': '?꾩뒳?꾩뒳 ?좎닔濡?愿媛앸뱾??醫뗭븘 ?섏?.',
+    'lv2t_msg': '?ъ쑀瑜?媛吏硫??쒖빞媛 ?볦뼱 吏꾨떎??',
+    'lv2v_msg': '?щ컻? ?묎퀬 臾닿굅??',
+    'lv2b_msg': '???뚯?留??띾룄媛 以꾨㈃ 湲됯꺽???붾뱾由ъ?.',
+    'lv3_msg': '議곌툑留??μ닕?댁?硫?臾대??????섎룄 ?덇쿋??',
+    'lv3v_msg': '?щ뒫???덇뎄留? 嫄곗쓽 ???붿쑝?????대씪援?',
+    'lv4_msg': '?댁젨 ?ㅼ쟾?댁빞. 臾대??먯꽑 蹂꾩씪?????쇱뼱?섏?.',
+    'lv4v_msg': '醫뗭븯?? ?댁젣遺?곕뒗 湲곕줉 ?몄??댁빞.',
+
+    // ?ㅽ뙣 硫붿떆吏
+    'tip_fly_1': '?덈Т 鍮⑤━ ?뚮━硫??좎븘媛꾨떎怨?',
+    'tip_fly_2': '?뺤떖遺由ъ? 留?',
+    'tip_fly_3': '吏꾩젙?? ?쒓볼踰덉뿉 ?덈Т 留롮씠 ?뚮━吏 留?',
+    'tip_fly_4': '?묒떆???щ━怨깊꽣媛 ?꾨땲??',
+
+    'tip_fall_1': '?쒕늿 ?붿? 留먮씪援?',
+    'tip_fall_2': '?泥??대뵒???뺤떊???먭퀬 ?덈뒗 嫄곗빞?',
+    'tip_fall_3': '?앷컖蹂대떎 ???⑥뼱吏꾨떎怨?諛⑹떖?섏? 留?',
+    'tip_fall_4': '?묒떆???뚮━媛 ?됯쿋??',
+  };
+
+  static final _en = <String, String>{
+    'game_title': 'SpinGo',
+    'start': 'Start',
+    'confirm': 'OK',
+    'register': 'Submit',
+    'retry': 'Retry',
+    'exit': 'Exit',
+    'leaderboard_title': 'Leaderboard (Top 7)',
+    'enter_name_hint': 'Enter your name (Korean ?? chars, Eng/Num ??2)',
+    'congrats': 'Congrats! New record ?럦',
+    'ai_tip_invalid_name': 'Invalid format.',
+    'lang': 'Language',
+
+    // Intro slides
+    'intro1': 'Chief Bong-sik Park, weary of dull routines...',
+    'intro2': 'Seeing a woman like his first love, he realizes...',
+    'intro3': 'There?셲 still so much he hasn?셳 done...',
+    'intro4': '\'I want to learn circus.\'     \'It won?셳 be easy...\'',
+    'intro5': '\'Who is that guy?\'',
+
+    // Level messages
+    'lv1_msg': 'Rub the stick, and the plate will spin.',
+    'lv1v_msg': 'Trays are large but light.',
+    'lv2_msg': 'The riskier it gets, the louder the cheers.',
+    'lv2t_msg': 'Take your time ??you?셪l see the bigger picture.',
+    'lv2v_msg': 'Bowls are small and heavy!',
+    'lv2b_msg': 'They spin well but shake hard when slowing down.',
+    'lv3_msg': 'A little more skill and you?셪l stand on stage.',
+    'lv3v_msg': 'You?셶e got talent ??almost there!',
+    'lv4_msg': 'Now it?셲 real ??anything can happen on stage.',
+    'lv4v_msg': 'Good! From here, it?셲 all about records.',
+
+    // Failure messages
+    'tip_fly_1': 'Spin too fast and it?셪l fly away!',
+    'tip_fly_2': 'Don?셳 get greedy!',
+    'tip_fly_3': 'Easy?봡on?셳 swipe too much at once.',
+    'tip_fly_4': 'A plate is not a helicopter!',
+
+    'tip_fall_1': 'Eyes on the plate!',
+    'tip_fall_2': 'Where?셲 your focus?',
+    'tip_fall_3': 'Don?셳 relax?봯lates fall when you least expect.',
+    'tip_fall_4': 'Move it, before a fly lands on it!',
+  };
+
+  static String tr(String key) {
+    final lang = LanguageManager.current.value;
+    final map = lang == AppLang.en ? _en : _ko;
+    return map[key] ?? _ko[key] ?? key;
+  }
+}
+
+===== C:\Users\parki\spingo\lib\language_manager.dart =====
+
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
+
+enum AppLang { ko, en }
+
+class LanguageManager {
+  static const _key = 'app_language';
+  static final ValueNotifier<AppLang> current = ValueNotifier<AppLang>(
+      AppLang.ko);
+
+  static Future<void> init() async {
+    final prefs = await SharedPreferences.getInstance();
+    final code = prefs.getString(_key);
+    if (code == 'en') {
+      current.value = AppLang.en;
+    } else {
+      current.value = AppLang.ko;
+    }
+  }
+
+  static Future<void> set(AppLang lang) async {
+    current.value = lang;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_key, lang == AppLang.en ? 'en' : 'ko');
+  }
+}
+
+===== C:\Users\parki\spingo\lib\levels.dart =====
+
+enum PlateType { normal, tray, bowl }
+
+class PlateSet {
+  final PlateType type;
+
+  PlateSet(this.type);
+}
+
+// ???먮윭 ?닿껐: TransformSet ?대옒?ㅺ? ?놁뼱??諛쒖깮???먮윭瑜??꾪빐 異붽?
+class TransformSet {
+  final PlateType to;
+
+  TransformSet(this.to);
+}
+
+class Level {
+  final int index;
+  final Duration duration;
+  final String background;
+  final String messageKey;
+  final List<PlateSet> sets;
+
+  // ???먮윭 ?닿껐: ?뺤쓽?섏? ?딆븯??留ㅺ컻蹂?섎뱾??異붽?
+  final bool isVariation;
+  final List<TransformSet> transforms;
+
+  Level({
+    required this.index,
+    required this.duration,
+    required this.background,
+    required this.messageKey,
+    required this.sets,
+    this.isVariation = false, // 湲곕낯媛??ㅼ젙
+    this.transforms = const [], // 湲곕낯媛??ㅼ젙
+  });
+}
+
+final List<Level> beginnerLevels = [
+  Level(
+    index: 1,
+    duration: const Duration(seconds: 30),
+    background: "backimage1.png",
+    messageKey: "lv1_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.normal)
+    ],
+  ),
+  Level(
+    index: 1,
+    duration: const Duration(seconds: 30),
+    background: "backimage1.png",
+    messageKey: "lv1v_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.tray),
+      PlateSet(PlateType.normal),
+    ],
+    isVariation: true,
+    transforms: [TransformSet(PlateType.tray)],
+  ),
+  Level(
+    index: 2,
+    duration: const Duration(seconds: 40),
+    background: "backimage2.png",
+    messageKey: "lv2_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.tray),
+    ],
+  ),
+  Level(
+    index: 2,
+    duration: const Duration(seconds:40),
+    background: "backimage2.png",
+    messageKey: "lv2t_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.tray),
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.tray),
+    ],
+  ),
+  Level(
+    index: 2,
+    duration: const Duration(seconds: 50),
+    background: "backimage2.png",
+    messageKey: "lv2v_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.tray),
+      PlateSet(PlateType.bowl),
+    ],
+    isVariation: true,
+    transforms: [TransformSet(PlateType.bowl)],
+  ),
+  Level(
+    index: 2,
+    duration: const Duration(seconds: 60),
+    background: "backimage2.png",
+    messageKey: "lv2b_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.tray),
+      PlateSet(PlateType.tray),
+      PlateSet(PlateType.bowl),
+    ],
+  ),
+  Level(
+    index: 3,
+    duration: const Duration(seconds: 60),
+    background: "backimage3.png",
+    messageKey: "lv3_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.bowl),
+      PlateSet(PlateType.tray),
+      PlateSet(PlateType.tray),
+    ],
+  ),
+  Level(
+    index: 3,
+    duration: const Duration(seconds: 60),
+    background: "backimage3.png",
+    messageKey: "lv3v_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.bowl),
+      PlateSet(PlateType.bowl),
+      PlateSet(PlateType.tray),
+    ],
+    isVariation: true,
+    transforms: [TransformSet(PlateType.tray)],
+  ),
+  Level(
+    index: 4,
+    duration: const Duration(days: 90),
+    background: "backimage4.png",
+    messageKey: "lv4_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.bowl),
+      PlateSet(PlateType.bowl),
+      PlateSet(PlateType.tray),
+      PlateSet(PlateType.tray),
+    ],
+  ),
+  Level(
+    index: 4,
+    duration: const Duration(days: 99),
+    background: "backimage4.png",
+    messageKey: "lv4v_msg",
+    sets: [
+      PlateSet(PlateType.normal),
+      PlateSet(PlateType.bowl),
+      PlateSet(PlateType.tray),
+      PlateSet(PlateType.tray),
+      PlateSet(PlateType.tray),
+    ],
+  ),
+];
+
+// ??????????????????????????????????????????????????????????????
+// 2?④퀎: 臾댄븳 蹂??紐⑤뱶 (5媛??명듃 怨좎젙, 1遺?30珥?媛꾧꺽)
+// ??????????????????????????????????????????????????????????????
+final List<Level> expertLevels = [
+  Level(index: 1,
+      duration: const Duration(seconds: 60),
+      background: "backimage2.png",
+      messageKey: "q_lv1",
+      sets: List.generate(5, (_) => PlateSet(PlateType.normal))),
+  Level(index: 2,
+      duration: const Duration(seconds: 60),
+      background: "backimage2.png",
+      messageKey: "q_lv2",
+      sets: [
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.tray)
+      ]),
+  Level(index: 3,
+      duration: const Duration(seconds: 60),
+      background: "backimage3.png",
+      messageKey: "q_lv3",
+      sets: [
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.tray),
+        PlateSet(PlateType.tray)
+      ]),
+  Level(index: 4,
+      duration: const Duration(seconds: 60),
+      background: "backimage3.png",
+      messageKey: "q_lv4",
+      sets: [
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.tray),
+        PlateSet(PlateType.tray),
+        PlateSet(PlateType.bowl)
+      ]),
+  Level(index: 5,
+      duration: const Duration(days: 99),
+      background: "backimage4.png",
+      messageKey: "q_lv5",
+      sets: [
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.tray),
+        PlateSet(PlateType.tray),
+        PlateSet(PlateType.bowl),
+        PlateSet(PlateType.bowl)
+      ]),
+];
+
+// ??????????????????????????????????????????????????????????????
+// 3?④퀎: 援ш뎄???ㅻ쾭 紐⑤뱶 (4媛??명듃 怨좎젙)
+// ??????????????????????????????????????????????????????????????
+final List<Level> brainBoosterLevels = [
+  Level(index: 1,
+      duration: const Duration(seconds: 120),
+      background: "backimage1.png",
+      messageKey: "s_lv1",
+      sets: List.generate(4, (_) => PlateSet(PlateType.normal))),
+  Level(index: 2,
+      duration: const Duration(seconds: 120),
+      background: "backimage2.png",
+      messageKey: "s_lv2",
+      sets: [
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.tray)
+      ]),
+  Level(index: 3,
+      duration: const Duration(days: 99),
+      background: "backimage4.png",
+      messageKey: "s_lv3",
+      sets: [
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.normal),
+        PlateSet(PlateType.tray),
+        PlateSet(PlateType.bowl)
+      ]),
+];
+
+===== C:\Users\parki\spingo\lib\main.dart =====
+
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // ???붾㈃ 諛⑺뼢 ?쒖뼱瑜??꾪빐 諛섎뱶???꾩슂
+import 'package:flame/game.dart';
+import 'dart:async';
+import 'package:confetti/confetti.dart';
+import 'plate_game.dart';
+import 'intro.dart';
+import 'sound_manager.dart';
+import 'language_manager.dart';
+
+void main() async {
+  // ???뚮윭???붿쭊??珥덇린?붾맆 ?뚭퉴吏 ?湲?
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // ??媛濡?諛⑺뼢(Landscape)?쇰줈 怨좎젙 ?ㅼ젙
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+
+  // ???곹깭諛?諛??섎떒 ?ㅻ퉬寃뚯씠??諛??④린湲?(紐곗엯??寃뚯엫 紐⑤뱶)
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
+  SoundLifecycleObserver();
+  await LanguageManager.init();
+
+  runApp(const SpinGoApp());
+}
+
+class SoundLifecycleObserver extends WidgetsBindingObserver {
+  SoundLifecycleObserver() {
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 狩??쇱꽑?앸떂??SoundManager??stopBgm/requestMainLoop ?깆씠 ?덉쑝誘濡?洹몄뿉 留욎땄
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      SoundManager.stopBgm();
+    } else if (state == AppLifecycleState.resumed) {
+      SoundManager.requestMainLoop();
+    }
+  }
+}
+
+class SpinGoApp extends StatelessWidget {
+  const SpinGoApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<AppLang>(
+      valueListenable: LanguageManager.current,
+      builder: (context, lang, _) {
+        return MaterialApp(
+          title: 'SpinGo: The Immortal Circus',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            brightness: Brightness.dark,
+            // ???쒓? ?고듃 ?곸슜 (?먯뀑???고듃 ?뚯씪???덈뒗吏 ?뺤씤 ?꾩닔!)
+            fontFamily: lang == AppLang.ko ? 'NotoSansKR' : null,
+          ),
+          // ??媛濡??붾㈃ 鍮꾩쑉???좎??섍린 ?꾪븳 Wrapper
+          home: const GameMainWrapper(),
+        );
+      },
+    );
+  }
+}
+
+class GameMainWrapper extends StatefulWidget {
+
+  const GameMainWrapper({super.key});
+
+  @override
+  State<GameMainWrapper> createState() => _GameMainWrapperState();
+}
+
+class _GameMainWrapperState extends State<GameMainWrapper> {
+  late ConfettiController _confettiController;
+
+  bool _isStartScreen = true;
+  bool _isIntro = false;
+  int _selectedMode = 0;
+
+  // ?좊땲硫붿씠?섏쓣 ?꾪븳 蹂?섎뱾
+  String _displayTitle = "";
+  final String _fullTitle = "SpinGo";
+  bool _showButton = false;
+
+  void _onPressStart() {
+    setState(() {
+      _isStartScreen = false;
+      _isIntro = true;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // 2. 議곗쥌湲?珥덇린??(2珥??숈븞 諛쒖궗?섎룄濡??ㅼ젙)
+    _confettiController =
+        ConfettiController(duration: const Duration(seconds: 2));
+    _startTyping();
+  }
+
+  @override
+  void dispose() {
+    // 3. ?붾㈃??爰쇱쭏 ??議곗쥌湲곕룄 醫낅즺 (硫붾え由?愿由?
+    _confettiController.dispose();
+    super.dispose();
+  }
+
+  void _startTyping() {
+    _displayTitle = "";
+    _showButton = false;
+    int index = 0;
+    Timer.periodic(const Duration(milliseconds: 200), (timer) {
+      if (index < _fullTitle.length) {
+        setState(() {
+          _displayTitle += _fullTitle[index];
+          index++;
+        });
+      } else {
+        timer.cancel();
+        setState(() => _showButton = true);
+        // 4. ??湲?먭? ???섏삤硫???＝ ??
+        _confettiController.play();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isStartScreen) {
+      SoundManager.requestWelcomeLoop();
+
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          alignment: Alignment.center,
+          children: [
+            // 1. 諛곌꼍 ?대?吏: ?놁씠 ?섎━?붾씪???꾩븘?섎? 苑?留욎땅?덈떎.
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/welcome.png',
+                fit: BoxFit.fitHeight,
+              ),
+            ),
+
+            // 2. 理쒖떊 肄붾뱶 諛섏쁺 (withValues ?ъ슜)
+            Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.3)
+                  ],
+                ),
+              ),
+            ),
+
+            // 5. ????＝???붾㈃ 以묒븰??諛곗튂
+            Align(
+              alignment: Alignment.center,
+              child: ConfettiWidget(
+                confettiController: _confettiController,
+                blastDirectionality: BlastDirectionality.explosive,
+                // ?щ갑?쇰줈 諛쒖궗
+                shouldLoop: false,
+                colors: const [
+                  Colors.red,
+                  Colors.blue,
+                  Colors.yellow,
+                  Colors.green,
+                  Colors.orange
+                ],
+                strokeWidth: 1,
+                strokeColor: Colors.white,
+              ),
+            ),
+
+            // 3. ??댄? 諛?踰꾪듉
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // 'The Immortal Circus' ?띿뒪?몃뒗 ?곹쁺 ???붿껌?濡??쒓굅?덉뒿?덈떎.
+
+                  // ??먭린 ?④낵濡??섑??섎뒗 SpinGo
+                  Text(
+                    _displayTitle,
+                    style: TextStyle(
+                      fontSize: 90,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 8,
+                      shadows: [
+                        Shadow(
+                            blurRadius: 20,
+                            color: Colors.red.withValues(alpha: 0.8)
+                        )
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 100), // 踰꾪듉怨쇱쓽 媛꾧꺽
+
+                  // 湲?먭? ???섏삤硫??섑??섎뒗 ?쒖옉?섍린 踰꾪듉
+                  if (_showButton)
+                    ElevatedButton(
+                      onPressed: _onPressStart,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 50, vertical: 20),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(40),
+                        ),
+                      ),
+                      child: const Text(
+                          '?쒖옉?섍린',
+                          style: TextStyle(fontSize: 28,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold)
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_isIntro) return IntroPage(onStartGame: (mode) =>
+        setState(() {
+          _selectedMode = mode;
+          _isIntro = false;
+        }));
+
+    // 3. 紐⑤뱶 ?좏깮 ???ㅼ젣 寃뚯엫 ?붾㈃
+    return Scaffold(
+      body: GameWidget<PlateSpinGame>(
+        game: PlateSpinGame(
+          startMode: _selectedMode,
+          onExit: () => setState(() => _isStartScreen = true), // 醫낅즺 ???쒖옉 ?붾㈃?쇰줈
+        ),
+        overlayBuilderMap: {
+          HudOverlay.id: (context, game) => HudOverlay(game: game),
+          MathOverlay.id: (context, game) => MathOverlay(game: game),
+          NameEntryOverlay.id: (context, game) => NameEntryOverlay(game: game),
+          LeaderboardOverlay.id: (context, game) =>
+              LeaderboardOverlay(game: game),
+          GameOverOverlay.id: (context, game) => GameOverOverlay(game: game),
+        },
+        initialActiveOverlays: const [HudOverlay.id],
+      ),
+    );
+  }
+}
+
+===== C:\Users\parki\spingo\lib\plate_game.dart =====
+
+// lib/plate_game.dart
+import 'dart:async' as async;
+import 'dart:math';
+import 'package:flame/components.dart';
+import 'package:flame/events.dart';
+import 'package:flame/game.dart';
+import 'package:flame/effects.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:speech_to_text/speech_to_text.dart';
+import 'components/pole.dart';
+import 'components/plate.dart';
+import 'components/bowl.dart';
+import 'components/big_plate.dart';
+import 'levels.dart';
+import 'sound_manager.dart';
+import 'score_manager.dart';
+import 'language_manager.dart';
+import 'l10n.dart';
+import 'package:flame/text.dart';
+import 'dart:ui' as ui;
+
+late final TextPaint koreanText;
+
+Future<void> initFonts() async {
+  try {
+    final fontData = await rootBundle.load(
+        'assets/fonts/NotoSansKR-Regular.ttf');
+    final loader = FontLoader('NotoSansKR')
+      ..addFont(Future.value(fontData));
+    await loader.load();
+    koreanText = TextPaint(
+      style: const TextStyle(
+          fontFamily: 'NotoSansKR', color: ui.Color(0xFFFFFFFF), fontSize: 28),
+    );
+  } catch (e) {
+    debugPrint('[SpinGo] ?좑툘 Font load failed: $e');
+  }
+}
+
+typedef TrayPlate = BigPlate;
+
+class MathOverlay extends StatelessWidget {
+  static const id = 'MathOverlay';
+  final PlateSpinGame game;
+
+  const MathOverlay({super.key, required this.game});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<String>(
+      valueListenable: game.problemNotifier,
+      builder: (context, problem, _) {
+        if (problem.isEmpty) return const SizedBox.shrink();
+        return Positioned(
+          top: 20,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 40, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.7),
+                    // ??Deprecated ?닿껐
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.amberAccent, width: 2),
+                  ),
+                  child: Text(problem, style: const TextStyle(fontSize: 45,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white)),
+                ),
+                const SizedBox(height: 5),
+                ValueListenableBuilder<double>(
+                  valueListenable: game.timerNotifier,
+                  builder: (context, timerVal, _) {
+                    return SizedBox(width: 200,
+                        child: LinearProgressIndicator(
+                            value: timerVal, minHeight: 5));
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ??????????????????????????????????????????????????????????????
+// 由щ뜑蹂대뱶
+// ??????????????????????????????????????????????????????????????
+class LeaderboardOverlay extends StatelessWidget {
+  static const id = 'LeaderboardOverlay';
+  final PlateSpinGame game;
+
+  const LeaderboardOverlay({super.key, required this.game});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<ScoreEntry>>(
+      future: ScoreManager.load(),
+      builder: (context, snap) {
+        final entries = (snap.data ?? const <ScoreEntry>[]);
+
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Material(
+              color: Colors.black87,
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(L10n.tr('leaderboard_title'),
+                        style: const TextStyle(
+                            fontSize: 22, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 12),
+                    if (!snap.hasData)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: CircularProgressIndicator(),
+                      )
+                    else
+                      ...List.generate(entries.length, (i) {
+                        final e = entries[i];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              SizedBox(width: 32, child: Text('${i + 1}.')),
+                              Expanded(
+                                  child: Text(e.name,
+                                      overflow: TextOverflow.ellipsis)),
+                              Text('${e.score}'),
+                            ],
+                          ),
+                        );
+                      }),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          game.overlays.remove(LeaderboardOverlay.id);
+                          game.overlays.add(GameOverOverlay.id);
+                          game.pauseEngine();
+                        },
+                        child: Text(L10n.tr('confirm')),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ??????????????????????????????????????????????????????????????
+// ?대쫫 ?낅젰
+// ??????????????????????????????????????????????????????????????
+class NameEntryOverlay extends StatefulWidget {
+  static const id = 'NameEntryOverlay';
+  final PlateSpinGame game;
+
+  const NameEntryOverlay({super.key, required this.game});
+
+  @override
+  State<NameEntryOverlay> createState() => _NameEntryOverlayState();
+}
+
+class _NameEntryOverlayState extends State<NameEntryOverlay> {
+  final _controller = TextEditingController(text: 'me');
+  String? _error;
+
+  bool _valid(String s) {
+    final runes = s.runes.toList();
+    final isKorean = runes.any((cp) => (cp >= 0xAC00 && cp <= 0xD7A3));
+    if (isKorean) return runes.length <= 5;
+    final ascii = RegExp(r'^[A-Za-z0-9 ]{1,12}$');
+    return ascii.hasMatch(s);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final game = widget.game;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Material(
+          color: Colors.black87,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(L10n.tr('congrats'),
+                    style: const TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 10),
+                Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(L10n.tr('enter_name_hint'))),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _controller,
+                  autofocus: true,
+                  maxLength: 12,
+                  decoration: const InputDecoration(
+                    filled: true,
+                    fillColor: Colors.black54,
+                    border: OutlineInputBorder(),
+                    counterText: '',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final name = _controller.text.trim();
+                      if (name.isEmpty || !_valid(name)) {
+                        setState(() =>
+                        _error = L10n.tr('ai_tip_invalid_name'));
+                        return;
+                      }
+                      await ScoreManager.addIfTop7(
+                          ScoreEntry(name, game.currentScore));
+                      game.overlays.remove(NameEntryOverlay.id);
+                      game.overlays.add(LeaderboardOverlay.id);
+                    },
+                    child: Text(L10n.tr('register')),
+                  ),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 6),
+                  Text(_error!,
+                      style: const TextStyle(color: Colors.redAccent)),
+                ]
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ??????????????????????????????????????????????????????????????
+// HUD (?뚯냼嫄? ?몄뼱)
+// ??????????????????????????????????????????????????????????????
+class HudOverlay extends StatefulWidget {
+  static const id = 'HudOverlay';
+  final PlateSpinGame game;
+
+  const HudOverlay({super.key, required this.game});
+
+  @override
+  State<HudOverlay> createState() => _HudOverlayState();
+}
+
+class _HudOverlayState extends State<HudOverlay> {
+  bool _muted = SoundManager.isMuted;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topRight,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 50, right: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.black54,
+                    minimumSize: const Size(48, 40)),
+                onPressed: () async {
+                  await SoundManager.toggleMute();
+                  setState(() => _muted = SoundManager.isMuted);
+                },
+                child: Text(
+                    _muted ? '?뵁' : '?뵄', style: const TextStyle(fontSize: 18)),
+              ),
+              const SizedBox(height: 6),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.black54,
+                    minimumSize: const Size(48, 36)),
+                onPressed: () async {
+                  final selected = await showDialog<AppLang>(
+                    context: context,
+                    builder: (ctx) =>
+                        AlertDialog(
+                          backgroundColor: Colors.black87,
+                          title: Text(L10n.tr('lang')),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              RadioListTile<AppLang>(
+                                value: AppLang.ko,
+                                groupValue: LanguageManager.current.value,
+                                onChanged: (v) => Navigator.pop(ctx, v),
+                                title: const Text('?쒓뎅??),
+                              ),
+                              RadioListTile<AppLang>(
+                                value: AppLang.en,
+                                groupValue: LanguageManager.current.value,
+                                onChanged: (v) => Navigator.pop(ctx, v),
+                                title: const Text('English'),
+                              ),
+                            ],
+                          ),
+                        ),
+                  );
+                  if (selected != null) {
+                    await LanguageManager.set(selected);
+                    if (mounted) setState(() {});
+                  }
+                },
+                child: Text(L10n.tr('lang')),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ??????????????????????????????????????????????????????????????
+// GameOverOverlay
+// ??????????????????????????????????????????????????????????????
+class GameOverOverlay extends StatelessWidget {
+  static const id = 'GameOverOverlay';
+  final PlateSpinGame game;
+
+  const GameOverOverlay({super.key, required this.game});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned.fill(
+            child: IgnorePointer(
+                child: Container(color: Colors.black.withValues(alpha:0.35)))),
+        Positioned.fill(
+          child: Center(
+            child: Image.asset('assets/images/game_over.png',
+                fit: BoxFit.fitHeight, alignment: Alignment.center),
+          ),
+        ),
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: 16,
+          child: SafeArea(
+            top: false,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                SizedBox(
+                  width: 180,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      game.overlays.remove(GameOverOverlay.id);
+                      game.onExit?.call();
+                    },
+                    child: Text(L10n.tr('retry')),
+                  ),
+                ),
+                SizedBox(
+                  width: 180,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      game.overlays.remove(GameOverOverlay.id);
+                      SystemNavigator.pop();
+                    },
+                    child: Text(L10n.tr('exit')),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ??????????????????????????????????????????????????????????????
+// ?숋툘 PlateSpinGame 蹂몄껜 (理쒖쥌 ?꾩꽦蹂?
+// ??????????????????????????????????????????????????????????????
+class PlateSpinGame extends FlameGame with PanDetector {
+  final int startMode;
+  final VoidCallback? onExit;
+  final problemNotifier = ValueNotifier<String>("");
+  final timerNotifier = ValueNotifier<double>(0);
+  final SpeechToText _speech = SpeechToText();
+
+  PlateSpinGame({this.onExit, this.startMode = 0});
+
+  List<Level> get _currentLevelList {
+    if (startMode == 1) return expertLevels;
+    if (startMode == 2) return brainBoosterLevels;
+    return beginnerLevels;
+  }
+
+  async.Timer? _levelTimer;
+  int _levelIndex = 0;
+  int remainingSeconds = 0;
+  SpriteComponent? _bg;
+  final List<Component> _decor = [];
+  final List<Plate> _plates = [];
+  final List<Pole> _poles = [];
+  int _attemptsLeft = 3;
+  SpriteComponent? _lifeIcon;
+  TextComponent? _lifeText;
+  bool _isGameOver = false;
+  bool _isRespawning = false;
+  bool _inCutscene = false;
+  double _cutsceneLeft = 0.0;
+  double _respawnCooldown = 0.0;
+  TextComponent? _levelMsg;
+  int _score = 0;
+
+  int get currentScore => _score;
+  double _levelTime = 0.0;
+  double _tickAccum = 0.0;
+  TextComponent? _scoreText;
+  double _swipeAccum = 0.0;
+  final double _swipeUnit = 120.0;
+  bool _lastFailWasFly = false;
+  TextComponent? _tipText;
+
+  bool _isSilverMode = false;
+  int? _currentAnswer;
+  double _missionTimer = 0;
+  final double _baseLimit = 7.0;
+  int _consecutiveCorrect = 0;
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    await images.loadAll([
+      'backimage1.png',
+      'backimage2.png',
+      'backimage3.png',
+      'backimage4.png',
+      'game_over.png',
+      'guide.png',
+      'plate.png',
+      'components/plate_blue.png',
+      'components/plate_red.png',
+      'components/plate_yellow.png',
+      'components/plate_green.png',
+      'components/plate_orange.png',
+      'components/bowl.png',
+      'components/bigPlate1.png',
+      'components/bigPlate2.png',
+      'components/pole.png',
+    ]);
+    await SoundManager.requestMainLoop();
+    await initFonts();
+
+    if (startMode == 1 || startMode == 2) {
+      _levelIndex = 0;
+      if (startMode == 2) {
+        _isSilverMode = true;
+        overlays.add(MathOverlay.id);
+        async.Timer(const Duration(seconds: 2), _generateMathProblem);
+      }
+    }
+    _applyLevel(_currentLevelList[_levelIndex]);
+    _initLivesUI();
+    _initScoreUI();
+    overlays.add(HudOverlay.id);
+  }
+
+  void _startListening() async {
+    try {
+      bool available = await _speech.initialize();
+      if (available) {
+        _speech.listen(
+          onResult: (result) {
+            String voice = result.recognizedWords;
+            if (_currentAnswer != null &&
+                voice.contains(_currentAnswer.toString())) {
+              _onMathSuccess();
+            }
+          },
+          // ??'options' 留ㅺ컻蹂?????吏곸젒 listenMode瑜?吏?먰븯??踰꾩쟾?닿굅??
+          // 吏?먰븯吏 ?딅뒗 援щ쾭?꾩씪 ???덉쑝誘濡?媛???덉쟾??湲곕낯 ?몄텧 諛⑹떇?쇰줈 蹂寃쏀빀?덈떎.
+          listenFor: const Duration(seconds: 5),
+          localeId: "ko_KR",
+        );
+      }
+    } catch (e) {
+      debugPrint('Speech initialization failed: $e');
+    }
+  }
+
+  void _generateMathProblem() {
+    if (!_isSilverMode || _isGameOver) return;
+    final random = Random();
+    int a = random.nextInt(8) + 2;
+    int b = random.nextInt(9) + 1;
+    _currentAnswer = a * b;
+    problemNotifier.value = "$a 횞 $b = ?";
+    _missionTimer = _baseLimit - (_consecutiveCorrect * 0.2).clamp(0, 4.0);
+    _startListening();
+  }
+
+  void _onMathSuccess() {
+    _score += 200;
+    _scoreText?.text = "Score: $_score";
+    problemNotifier.value = "O";
+    _currentAnswer = null;
+    async.Timer(const Duration(seconds: 1), _generateMathProblem);
+  }
+
+  void _onMathFail() {
+    problemNotifier.value = "X";
+    _currentAnswer = null;
+    async.Timer(const Duration(seconds: 1), _generateMathProblem);
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    if (_isGameOver) return;
+    if (_isSilverMode && _currentAnswer != null) {
+      _missionTimer -= dt;
+      timerNotifier.value = (_missionTimer / _baseLimit).clamp(0, 1);
+      if (_missionTimer <= 0) _onMathFail();
+    }
+    if (_inCutscene) {
+      _cutsceneLeft -= dt;
+      if (_cutsceneLeft <= 0) {
+        _inCutscene = false;
+        _levelMsg?.removeFromParent();
+        _levelMsg = null;
+        _setupPlates(_currentLevelList[_levelIndex]);
+        _respawnCooldown = 0.2;
+      }
+      return;
+    }
+    if (_respawnCooldown > 0) {
+      _respawnCooldown -= dt;
+      return;
+    }
+    if (_plates.isEmpty) {
+      _failAndRespawnOrGameOver();
+      return;
+    }
+    _levelTime += dt;
+    _tickAccum += dt;
+    while (_tickAccum >= 0.1) {
+      _addScore(1);
+      _tickAccum -= 0.1;
+    }
+    for (final p in _plates) {
+      if (p.gameOver) {
+        _lastFailWasFly = p.flyingAway;
+        _failAndRespawnOrGameOver();
+        return;
+      }
+      _updateBackgroundHeat();
+    }
+  }
+
+  void _nextLevel() {
+    _cancelTimer();
+    _addScore(_levelTime <= 60 ? 500 : (_levelTime <= 120 ? 300 : 100));
+    _levelTime = 0.0;
+    _levelIndex++;
+    if (_levelIndex >= _currentLevelList.length) {
+      gameOver();
+    } else {
+      _applyLevel(_currentLevelList[_levelIndex]);
+    }
+  }
+
+  void _failAndRespawnOrGameOver() {
+    if (_isGameOver || _isRespawning) return;
+    _isRespawning = true;
+    _attemptsLeft--;
+    _updateLifeUI();
+    SoundManager.playSfxSafe("crowd.wav");
+    if (_attemptsLeft > 0) {
+      _showTipFor(const Duration(seconds: 3));
+      _respawnCooldown = 3.0;
+      async.Timer(const Duration(seconds: 3), () {
+        _tipText?.removeFromParent();
+        _tipText = null;
+        _applyLevel(_currentLevelList[_levelIndex]);
+        _respawnCooldown = 0.35;
+        _isRespawning = false;
+        SoundManager.requestMainLoop();
+      });
+    } else {
+      gameOver();
+    }
+  }
+
+  void gameOver() {
+    if (_isGameOver) return;
+    _isGameOver = true;
+    _cancelTimer();
+    SoundManager.stopBgm();
+    pauseEngine();
+    ScoreManager.qualifies(_score).then((ok) =>
+        overlays.add(ok ? NameEntryOverlay.id : LeaderboardOverlay.id));
+  }
+
+  void _addScore(int amount) {
+    _score += amount;
+    _scoreText?.text = "Score: $_score";
+  }
+
+  void _updateLifeUI() {
+    _lifeText?.text = "횞${(_attemptsLeft - 1).clamp(0, 99)}";
+  }
+
+  void _cancelTimer() {
+    _levelTimer?.cancel();
+    _levelTimer = null;
+  }
+
+  void _clearDecor() {
+    for (final c in _decor)
+      c.removeFromParent();
+    _decor.clear();
+  }
+
+  void _clearPlates() {
+    for (final p in _plates)
+      p.removeFromParent();
+    _plates.clear();
+  }
+
+  void _applyLevel(Level level) {
+    _cancelTimer();
+    _clearDecor();
+    _clearPlates();
+    _poles.clear();
+    _bg?.removeFromParent();
+    _bg = SpriteComponent(sprite: Sprite(images.fromCache(level.background)),
+        size: size,
+        priority: -1);
+    add(_bg!);
+
+    if (startMode == 0) {
+      _inCutscene = true;
+      _cutsceneLeft = 2.0;
+      _levelMsg?.removeFromParent();
+      _levelMsg = TextComponent(text: L10n.tr(level.messageKey),
+          anchor: Anchor.center,
+          position: Vector2(size.x / 2, size.y / 4),
+          textRenderer: koreanText);
+      add(_levelMsg!);
+    } else {
+      _inCutscene = false;
+      _setupPlates(level);
+    }
+
+    remainingSeconds = level.duration.inSeconds;
+    if (remainingSeconds < 1000000) {
+      _levelTimer = async.Timer.periodic(const Duration(seconds: 1), (t) {
+        remainingSeconds--;
+        if (remainingSeconds <= 0) {
+          t.cancel();
+          _levelTimer = null;
+          _nextLevel();
+        }
+      });
+    }
+  }
+
+  void _setupPlates(Level level) {
+    _clearDecor();
+    _clearPlates();
+    _poles.clear();
+
+    final count = level.sets.length;
+
+    // ??[?섏젙] 留됰?湲??꾩튂 ?꾨낫?ㅼ쓣 誘몃━ 留뚮벊?덈떎.
+    final List<double> xPositions = [];
+    final spacing = size.x / (count + 1);
+    for (int i = 0; i < count; i++) {
+      xPositions.add(spacing * (i + 1));
+    }
+
+    // ??[?듭떖 1] 留됰?湲??꾩튂瑜??쒕뜡?쇰줈 ?욎뒿?덈떎.
+    xPositions.shuffle();
+
+    final plateImages = [
+      'components/plate_blue.png',
+      'components/plate_yellow.png',
+      'components/plate_red.png',
+      'components/plate_green.png',
+      'components/plate_orange.png'
+    ];
+
+    for (int i = 0; i < count; i++) {
+      final x = xPositions[i]; // ?욎씤 ?꾩튂 ?ъ슜
+      final pivotY = size.y / 2.2;
+
+      final pole = Pole(
+          position: Vector2(x, size.y), targetHeight: (size.y - pivotY).abs())
+        ..priority = 0;
+      add(pole);
+      _decor.add(pole);
+      _poles.add(pole);
+
+      final type = level.sets[i].type;
+      Plate plate;
+
+      if (type == PlateType.tray) {
+        // ??[?듭떖 2] ???묒떆 ?대?吏??1, 2 以??쒕뜡 ?좏깮
+        final trayImg = (Random().nextBool())
+            ? 'bigPlate1.png'
+            : 'bigPlate2.png';
+        plate = BigPlate(
+            center: Vector2(x, pivotY), imagePath: 'components/$trayImg');
+      } else if (type == PlateType.bowl) {
+        plate = BowlPlate(center: Vector2(x, pivotY))
+          ..omega = 30;
+      } else {
+        // ??[?듭떖 3] ?쇰컲 ?묒떆 ?됱긽(?대?吏)???쒕뜡?섍쾶 ?좏깮
+        final randomImg = plateImages[Random().nextInt(plateImages.length)];
+        plate = Plate(center: Vector2(x, pivotY), imagePath: randomImg);
+      }
+
+      plate.priority = 1;
+      add(plate);
+      _plates.add(plate);
+    }
+    _respawnCooldown = 0.35;
+    _isRespawning = false;
+  }
+
+  void _initLivesUI() {
+    _lifeIcon?.removeFromParent();
+    _lifeText?.removeFromParent();
+    _lifeIcon = SpriteComponent(sprite: Sprite(images.fromCache('plate.png')),
+        size: Vector2(40, 40),
+        position: Vector2(20, size.y - 60),
+        anchor: Anchor.topLeft,
+        priority: 3000);
+    add(_lifeIcon!);
+    _lifeText = TextComponent(text: "횞${(_attemptsLeft - 1).clamp(0, 99)}",
+        anchor: Anchor.topLeft,
+        position: Vector2(70, size.y - 55),
+        textRenderer: koreanText,
+        priority: 3001);
+    add(_lifeText!);
+  }
+
+  void _initScoreUI() {
+    _scoreText?.removeFromParent();
+    _scoreText = TextComponent(text: "Score: 0",
+        anchor: Anchor.topRight,
+        position: Vector2(size.x - 100, 20),
+        textRenderer: koreanText,
+        priority: 3002);
+    add(_scoreText!);
+  }
+
+  void _showTipFor(Duration dur) {
+    final tipList = _lastFailWasFly ? [
+      L10n.tr('tip_fly_1'),
+      L10n.tr('tip_fly_2')
+    ] : [L10n.tr('tip_fall_1'), L10n.tr('tip_fall_2')];
+    final tip = (tipList..shuffle()).first;
+    _tipText?.removeFromParent();
+    _tipText = TextComponent(text: tip,
+        anchor: Anchor.center,
+        position: Vector2(size.x / 2, size.y * 0.25),
+        textRenderer: koreanText,
+        priority: 4000);
+    add(_tipText!);
+  }
+
+  @override
+  void onPanUpdate(DragUpdateInfo info) {
+    if (_isGameOver || _inCutscene || _isRespawning) return;
+    final pos = info.eventPosition.global;
+    Plate? nearestPlate;
+    Pole? nearestPole;
+    double minDist = double.infinity;
+
+    for (int i = 0; i < _plates.length; i++) {
+      final p = _plates[i];
+      final d = p.position.distanceTo(pos);
+      if (d < minDist) {
+        minDist = d;
+        nearestPlate = p;
+        nearestPole = _poles[i];
+      }
+    }
+
+    if (nearestPlate != null && nearestPole != null) {
+      final input = info.delta.global.length.clamp(0, 60).toDouble();
+      if (input <= 0) return;
+      nearestPlate.boost(input);
+      if (nearestPole.children
+          .whereType<RotateEffect>()
+          .isEmpty) {
+        nearestPole.add(
+            RotateEffect.by(0.005, SineEffectController(period: 0.1)));
+      }
+      nearestPole.add(
+          RotateEffect.by(0.01, SineEffectController(period: 0.08)));
+      _swipeAccum += input;
+      if (_swipeAccum >= _swipeUnit) {
+        _addScore(10 * (_swipeAccum ~/ _swipeUnit));
+        _swipeAccum %= _swipeUnit;
+      }
+    }
+  }
+
+  void _updateBackgroundHeat() {
+    // 湲곗〈 heat 濡쒖쭅 ?꾩슂 ??異붽?
+  }
+}
+
+===== C:\Users\parki\spingo\lib\score_manager.dart =====
+
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class ScoreEntry {
+  final String name;
+  final int score;
+  ScoreEntry(this.name, this.score);
+
+  Map<String, dynamic> toJson() => {'name': name, 'score': score};
+  static ScoreEntry fromJson(Map<String, dynamic> j) => ScoreEntry(j['name'] as String, j['score'] as int);
+}
+
+class ScoreManager {
+  static const _key = 'leaderboard_top7';
+
+  static Future<List<ScoreEntry>> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final s = prefs.getString(_key);
+    if (s == null) return [];
+    final List list = jsonDecode(s);
+    return list.map((e) => ScoreEntry.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  static Future<void> save(List<ScoreEntry> items) async {
+    final prefs = await SharedPreferences.getInstance();
+    final s = jsonEncode(items.map((e) => e.toJson()).toList());
+    await prefs.setString(_key, s);
+  }
+
+  static Future<List<ScoreEntry>> addIfTop7(ScoreEntry entry) async {
+    final items = await load();
+    items.add(entry);
+    items.sort((a, b) => b.score.compareTo(a.score)); // desc
+    final top7 = items.take(7).toList();
+    await save(top7);
+    return top7;
+  }
+
+  static Future<bool> qualifies(int score) async {
+    final items = await load();
+    if (items.length < 7) return true;
+    final worst = items.last.score;
+    return score > worst;
+  }
+}
+
+===== C:\Users\parki\spingo\lib\sound_manager.dart =====
+
+// lib/sound_manager.dart
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/widgets.dart';
+
+/// 寃뚯엫 ?꾩뿭 ?ъ슫??留ㅻ땲? (audioplayers ^6.x)
+class SoundManager {
+  static final AudioPlayer _bgm = AudioPlayer();
+  static String? _currentBgm; // ?꾩옱 ?명똿??BGM ?뚯씪紐?
+  static bool _muted = false;
+
+  static bool get isMuted => _muted;
+
+  static Future<void> _initOnce() async {
+    await _bgm.setReleaseMode(ReleaseMode.loop);
+    await _bgm.setVolume(_muted ? 0.0 : 1.0);
+  }
+
+  /// ?대? 怨듯넻: 二쇱뼱吏??뚯씪??猷⑦봽濡?"?뺤떎?? ?ъ깮
+  static Future<void> _startLoop(String file) async {
+    await _initOnce();
+    await _bgm.stop();
+    if (_currentBgm != file) {
+      // 猷⑦봽 BGM? 議댁옱?쒕떎怨?媛???꾩슂???덉쟾 泥댄겕 異붽? 媛??
+      await _bgm.setSource(AssetSource('audio/$file'));
+      _currentBgm = file;
+    }
+    await _bgm.setReleaseMode(ReleaseMode.loop);
+    await _bgm.setVolume(_muted ? 0.0 : 1.0);
+    await _bgm.resume();
+  }
+
+  static Future<void> requestWelcomeLoop() => _startLoop('welcome.mp3');
+
+  static Future<void> requestMainLoop() => _startLoop('main.mp3');
+
+  static Future<void> stopBgm() async {
+    await _bgm.stop();
+  }
+
+  static Future<void> toggleMute() async {
+    _muted = !_muted;
+    await _bgm.setVolume(_muted ? 0.0 : 1.0);
+  }
+
+  // ???????????????????????????????????????????????????????????
+  //             ?뵏 ?덉쟾???④낵???ъ깮 ?좏떥
+  // ???????????????????????????????????????????????????????????
+
+  /// ?먯뀑 議댁옱 ?щ? ?뺤씤 (assets/ ?묐몢???먮룞 遺李?
+  static Future<bool> _assetExists(String relPathFromAssets) async {
+    try {
+      await rootBundle.load('assets/$relPathFromAssets');
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// ?④낵??1???ъ깮(?덉쟾): ?뚯씪???놁쑝硫?議곗슜??臾댁떆(?щ옒??諛⑹?)
+  static Future<void> playSfxSafe(String file, {double volume = 1.0}) async {
+    final rel = 'audio/$file';
+    final exists = await _assetExists(rel);
+    if (!exists) {
+      debugPrint('[SoundManager] SFX not found: assets/$rel (silenced)');
+      return;
+    }
+    final p = AudioPlayer();
+    await p.setReleaseMode(ReleaseMode.stop);
+    await p.setVolume(_muted ? 0.0 : volume.clamp(0.0, 1.0));
+    await p.play(AssetSource(rel));
+  }
+
+  /// ?④낵??1???ъ깮(?대갚): primary ?놁쑝硫?fallback ?쒕룄, 洹멸쾬???놁쑝硫?臾댁쓬
+  static Future<void> playSfxWithFallback(String primary, {
+    String? fallback,
+    double volume = 1.0,
+  }) async {
+    final relPrimary = 'audio/$primary';
+    if (await _assetExists(relPrimary)) {
+      return playSfxSafe(primary, volume: volume);
+    }
+    if (fallback != null) {
+      final relFallback = 'audio/$fallback';
+      if (await _assetExists(relFallback)) {
+        return playSfxSafe(fallback, volume: volume);
+      }
+    }
+    debugPrint('[SoundManager] SFX not found: $primary'
+        '${fallback != null ? ' (and fallback: $fallback)' : ''}. Silenced.');
+  }
+
+  /// (湲곗〈 媛꾨떒 踰꾩쟾) ?④낵??1???ъ깮 ???뚯씪 ?놁쑝硫??덉쇅 ?????덉쓬
+  /// 媛?ν븯硫?playSfxSafe / playSfxWithFallback ?ъ슜 沅뚯옣
+  static Future<void> playSfx(String file, {double volume = 1.0}) async {
+    final p = AudioPlayer();
+    await p.setReleaseMode(ReleaseMode.stop);
+    await p.setVolume(_muted ? 0.0 : volume.clamp(0.0, 1.0));
+    await p.play(AssetSource('audio/$file'));
+  }
+}
+
+class SoundLifecycleObserver with WidgetsBindingObserver {
+  SoundLifecycleObserver() {
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      SoundManager.stopBgm(); // ??諛깃렇?쇱슫????利됱떆 ?뺤?
+    } else if (state == AppLifecycleState.resumed) {
+      // 蹂듦? ???ш컻?섏? ?딆쓬 (?ъ궗 ?붽뎄?ы빆)
+    }
+  }
+
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+  }
+}
+
+===== C:\Users\parki\spingo\lib\components\basketball.dart =====
+
+// lib/components/basketball.dart
+import 'dart:math';
+import 'dart:ui' as ui; // Gradient
+import 'package:flame/components.dart';
+import 'package:flutter/material.dart';
+
+/// 援ъ쓽 ?쀫?遺꾩쓣 ?섎씪?닿퀬(?꾨옯遺遺?40%留??④?),
+/// ?덈떒硫???? + 踰??먭퍡(?ㅻ젋吏 留? + ?대? ?곗깋 + ?뚯쟾 ?먯꽑(?먭퍡 ?????쒖떆.
+/// 寃? ?덉꽑/臾대뒳 ?놁쓬.
+class Basketball extends PositionComponent {
+  double radius;
+  double omega;     // ?먯꽑 ?뚯쟾 ?띾룄
+  double friction;  // 媛먯냽
+  double angle = 0; // ?뚯쟾 ?꾩긽
+
+  final Color base = const Color(0xFFEB7A2D);   // ?ㅻ젋吏(?명뵾/踰쎈몢猿?
+  final Color shadow = const Color(0xFFB4541E); // ?꾨옒履?洹몃뒛(蹂쇰ⅷ)
+  final Color inner = Colors.white;             // ?대? ??
+
+  Basketball({
+    required Vector2 position,
+    this.radius = 60,
+    this.omega = 8.0,
+    this.friction = 0.6,
+  }) : super(position: position, size: Vector2.all(1), anchor: Anchor.center, priority: 1000);
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    omega = max(0, omega - friction * dt);
+    angle = (angle + omega * dt) % (pi * 2);
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final r = radius;
+    final c = Offset.zero;
+
+    // ---- ?덈떒 ?믪씠: ?꾨옒 40%留??④린湲????됰㈃ y = +0.2r
+    final double yCut = r * 0.20;
+
+    // ?덈떒 ??諛섏?由?
+    final double rPlane = sqrt(max(0, r * r - yCut * yCut));
+
+    // ?댁쭩 ?꾩뿉???대젮?ㅻ낫???쒖젏 ?????
+    const double perspective = 0.56; // 0.50~0.65 議곗젅
+    final double cutW = rPlane * 2;
+    final double cutH = max(1, rPlane * 2 * perspective);
+
+    // 踰??먭퍡(px)
+    final double wall = max(2.0, r * 0.08);
+
+    // ---- 1) ?섎떒 諛섍뎄(40%) 洹몃━湲?
+    canvas.save();
+    canvas.clipRect(Rect.fromLTRB(-r * 3, yCut, r * 3, r * 3));
+    canvas.drawCircle(c, r, Paint()..color = base);
+
+    final radialPaint = Paint()
+      ..shader = ui.Gradient.radial(
+        c.translate(0, r * 0.35),
+        r * 1.1,
+        [Colors.transparent, shadow.withOpacity(0.85)],
+        [0.35, 1.0],
+      );
+    canvas.drawCircle(c, r, radialPaint);
+
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(-r * 0.35, -r * 0.45),
+        width: r * 0.8,
+        height: r * 0.5,
+      ),
+      Paint()..color = Colors.white.withOpacity(0.18),
+    );
+    canvas.restore();
+
+    // ---- 2) ?덈떒 ???+ ?대?
+    final Rect outerCutRect = Rect.fromCenter(center: Offset(0, yCut), width: cutW, height: cutH);
+    final Rect innerCutRect = outerCutRect.deflate(wall);
+
+    // 諛붽묑 ?덈떒 ????ㅻ젋吏) = 踰??먭퍡 諛뷀깢
+    canvas.drawOval(outerCutRect, Paint()..color = base);
+
+    // ?대? ?곗깋 + ?댁쭩 洹몃뒛
+    if (innerCutRect.width > 0 && innerCutRect.height > 0) {
+      canvas.drawOval(innerCutRect, Paint()..color = inner);
+      final innerShade = Paint()..color = Colors.black.withOpacity(0.06);
+      final Rect shadeRect = innerCutRect.translate(0, innerCutRect.height * 0.12);
+      canvas.drawOval(shadeRect, innerShade);
+    }
+
+    // ?뉗? ?멸낸???듭뀡)
+    canvas.drawOval(
+      outerCutRect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = const Color(0xFF3A1E0E).withOpacity(0.20),
+    );
+    if (innerCutRect.width > 0 && innerCutRect.height > 0) {
+      canvas.drawOval(
+        innerCutRect,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0
+          ..color = Colors.black.withOpacity(0.10),
+      );
+    }
+
+    // ---- 3) 踰??먭퍡 留곸뿉 "?뚯쟾 ?먯꽑" (?????꾨?)
+    if (innerCutRect.width > 0 && innerCutRect.height > 0) {
+      _drawDottedWallRim(
+          canvas: canvas,
+          outerRect: outerCutRect,
+          innerRect: innerCutRect,
+          phase: angle,        // ?뚯쟾 ?꾩긽
+          dotCount: 40,        // 48~64 沅뚯옣
+          onlyFrontHalf: false // ???ㅼそ源뚯? ?댁뼱吏寃?
+      );
+    }
+
+    // ?꾩껜 ?멸낸???꾩＜ ?낃쾶(?듭뀡)
+    canvas.drawCircle(
+      c,
+      r,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = const Color(0xFF0D0D0D).withOpacity(0.10),
+    );
+  }
+
+  /// 踰??먭퍡 留?以묒븰?좎쓣 ?곕씪 ?뚯쟾?섎뒗 ?먯꽑
+  /// - onlyFrontHalf=false?대㈃ ?ㅼそ(?쀫컲????洹몃━?? ?ㅼそ? ?낃쾶
+  void _drawDottedWallRim({
+    required Canvas canvas,
+    required Rect outerRect,
+    required Rect innerRect,
+    required double phase,
+    int dotCount = 56,
+    bool onlyFrontHalf = true,
+  }) {
+    final cx = (outerRect.left + outerRect.right) / 2;
+    final cy = (outerRect.top + outerRect.bottom) / 2;
+
+    final rx = ((outerRect.width / 2) + (innerRect.width / 2)) / 2;
+    final ry = ((outerRect.height / 2) + (innerRect.height / 2)) / 2;
+
+    final wall = (outerRect.width - innerRect.width) / 2;
+    final double rDot = wall * 0.45; // 0.30~0.45
+
+    // ?ㅼそ(?쀫컲?? 癒쇱? ?낃쾶 洹몃━湲????욎そ ?먯씠 ??뿬 ?먯뿰?ㅻ윭??寃뱀묠
+    if (!onlyFrontHalf) {
+      final Paint backP = Paint()..color = const Color(0xFF311B0B).withOpacity(0.30);
+      for (int i = 0; i < dotCount; i++) {
+        final theta = phase + (2 * pi / dotCount) * i;
+        final dx = cx + rx * cos(theta);
+        final dy = cy + ry * sin(theta);
+        // ?붾㈃ 醫뚰몴怨꾩뿉???ㅼそ? dy <= cy (????쀬そ)
+        if (dy <= cy) {
+          canvas.drawCircle(Offset(dx, dy), rDot, backP);
+        }
+      }
+    }
+
+    // ?욎そ(?꾨옯諛섏썝) ?좊챸?섍쾶
+    final Paint frontP = Paint()..color = const Color(0xFF311B0B).withOpacity(0.85);
+    for (int i = 0; i < dotCount; i++) {
+      final theta = phase + (2 * pi / dotCount) * i;
+      final dx = cx + rx * cos(theta);
+      final dy = cy + ry * sin(theta);
+      if (onlyFrontHalf) {
+        if (dy > cy) {
+          canvas.drawCircle(Offset(dx, dy), rDot, frontP);
+        }
+      } else {
+        // ?꾩껜瑜?洹몃━???욎そ? 吏꾪븯寃?
+        if (dy > cy) {
+          canvas.drawCircle(Offset(dx, dy), rDot, frontP);
+        } else {
+          // ?ㅼそ? ?꾩뿉???대? ?낃쾶 洹몃젮議뚯쓬
+          // ?꾩슂 ???ш린?쒕룄 ??踰????낃쾶 洹몃┫ ???덉쓬.
+        }
+      }
+    }
+  }
+}
+
+===== C:\Users\parki\spingo\lib\components\big_plate.dart =====
+
+import 'package:flame/components.dart';
+import 'plate.dart';
+import 'dart:math';
+import 'dart:ui' as ui;
+
+// big_plate.dart ?섏젙蹂?
+class BigPlate extends Plate {
+  BigPlate({required Vector2 center, required String imagePath})
+      : super(
+    center: center,
+    imagePath: imagePath,
+    friction: 2.8,
+    // 留덉같??2.8
+    maxTilt: 0.7,
+    // 湲곗슱湲??꾧퀎媛?1.2
+    omegaMax: 28,
+    // 28 ?댁긽 鍮꾪뻾
+    initialOmega: 18,
+    plateSize: Vector2(180, 180),
+  );
+
+  @override
+  void boost(double input) {
+    // ?뵦 ?묒떆蹂대떎 ?ㅼ??댄봽??20% 鍮⑤━ 諛섏쓳 (1.2諛?
+    super.boost(input * 1.2);
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    // ?뵦 怨쇱뿴 ?쒖옉???ъ젙??(24 ?댁긽)
+    final targetHeat = ((omega - 24.0) / (28.0 - 24.0)).clamp(0.0, 1.0);
+    heat = ui.lerpDouble(heat, targetHeat, dt * 3.0)!;
+  }
+}
+
+===== C:\Users\parki\spingo\lib\components\bowl.dart =====
+
+import 'dart:math';
+import 'dart:ui' as ui;
+import 'package:flame/components.dart';
+import 'plate.dart';
+
+class BowlPlate extends Plate {
+  late Sprite _plainBowl;
+  double _dotRotation = 0.0;
+  double _wobbleTime = 0.0;
+
+  BowlPlate({required Vector2 center})
+      : super(
+    center: center,
+    imagePath: 'components/plain_bowl.png',
+    friction: 2.0,
+    // 留덉같??0.8
+    maxTilt: 0.8,
+    // 湲곗슱湲??꾧퀎媛?0.8
+    omegaMax: 35,
+    // 35 ?댁긽 鍮꾪뻾
+    initialOmega: 20,
+    plateSize: Vector2(100, 100),
+  );
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    _plainBowl = await game.loadSprite('components/plain_bowl.png');
+  }
+
+  @override
+  void boost(double input) {
+    // ?뵦 ?묒떆蹂대떎 ?ㅼ??댄봽??20% ?먮━寃?諛섏쓳 (0.8諛?
+    super.boost(input * 0.8);
+  }
+
+  @override
+  void update(double dt) {
+    // 1. 鍮꾪뻾 ?곹깭?쇰㈃ 遺紐?濡쒖쭅 ?섑뻾 ??醫낅즺
+    if (flyingAway) {
+      super.update(dt);
+      return;
+    }
+
+    // 2. ?щ컻 ?꾩슜 ?뚯쟾 諛??붾뱾由??낅뜲?댄듃
+    if (!falling) {
+      _dotRotation += dt * (omega * 1.5);
+      _dotRotation %= 2 * pi;
+
+      // ?붾뱾由?吏꾪룺 (3~15 援ш컙)
+      targetAmp = (1 - (omega - 3.0) / (15.0 - 3.0)).clamp(0, 1) * maxTilt;
+
+      final freq = 0.5 + (omega * 0.3);
+      phase += freq * dt;
+      tilt = sin(phase) * targetAmp;
+
+      // ?뵦 [?섏젙] 怨쇱뿴 ?쒓컖??援ш컙 議곗젙 (30???꾨땲??28遺??遺됱뼱吏寃?
+      final targetHeat = ((omega - 28.0) / (35.0 - 28.0)).clamp(0.0, 1.0);
+      heat = ui.lerpDouble(heat, targetHeat, dt * 3.0)!;
+    }
+
+    // 3. ?뵦 [以묒슂] 鍮꾪뻾 諛?臾쇰━ 濡쒖쭅???꾪빐 遺紐?update ?몄텧
+    // ?대븣 plate.dart?먯꽌 ?섏젙???꾪솕??鍮꾪뻾 議곌굔???곸슜?⑸땲??
+    super.update(dt);
+  }
+
+  @override
+  void render(ui.Canvas canvas) {
+    canvas.save();
+    canvas.translate(size.x / 2, size.y / 2);
+    canvas.rotate(tilt);
+
+    _plainBowl.render(canvas, size: size, anchor: Anchor.center);
+
+    _renderRotatingDots(canvas);
+
+    canvas.restore();
+  }
+
+  void _renderRotatingDots(ui.Canvas canvas) {
+    final paint = ui.Paint()
+      ..color = const ui.Color(0xFF2C4A8D).withOpacity(0.7)
+      ..style = ui.PaintingStyle.fill;
+
+    const int dotCount = 8;
+    final double radiusX = size.x * 0.44;
+    final double yCenter = 0.0;
+
+    for (int i = 0; i < dotCount; i++) {
+      double currentAngle = (i * (2 * pi / dotCount)) + _dotRotation;
+
+      double x = cos(currentAngle) * radiusX;
+      double z = sin(currentAngle);
+
+      if (z > 0) {
+        double dotSize = 1.5 + (z * 1.5);
+
+        // ??怨≪꽑 蹂댁젙 ?듭떖:
+        // 以묒븰(x=0)?먯꽌 y媛믪씠 媛???ш퀬(?꾨옒), ????x=radiusX)?쇰줈 媛덉닔濡?y媛믪씠 ?묒븘吏?꾨줉(?? ?ㅼ젙
+        // (1 - x?쒓낢 鍮꾩쑉)???ъ슜?섏뿬 ?꾨옒濡?蹂쇰줉??怨≪꽑??留뚮벊?덈떎.
+        double curveDepth = 8.0; // 怨≪꽑??源딆씠 (?レ옄媛 ?댁닔濡???留롮씠 ?섏뼱吏?
+        double curvedY = yCenter + (1 - pow(x / radiusX, 2)) * curveDepth;
+
+        canvas.drawCircle(ui.Offset(x, curvedY), dotSize, paint);
+      }
+    }
+  }
+}
+
+===== C:\Users\parki\spingo\lib\components\plate.dart =====
+
+import 'dart:math';
+import 'dart:ui' as ui;
+import 'package:flame/components.dart';
+import 'package:flame/game.dart';
+import 'package:flutter/material.dart';
+import '../sound_manager.dart';
+
+class Plate extends SpriteComponent with HasGameReference<FlameGame> {
+  double omega;
+  double angleRad = 0;
+  double tilt = 0;
+  double phase = 0;
+  double currentAmp = 0,
+      targetAmp = 0;
+
+  // ?뵦 ?ㅻ쪟 ?닿껐 1: final 蹂?섎뒗 ?좎뼵 ???뱀? ?대땲?쒕씪?댁??먯꽌 珥덇린?뷀빐???⑸땲??
+  final double phaseOffset = Random().nextDouble() * 2 * pi;
+
+  double flatTimer = 0.0;
+  bool gameOver = false;
+  bool flyingAway = false;
+  bool falling = false;
+  double heat = 0.0;
+
+  // 臾쇱꽦移?
+  double friction;
+  double omegaMax;
+  double maxTilt;
+  double fallSpeed;
+
+  // ?뵦 ?ㅻ쪟 ?닿껐 2 & 3: 湲곕낯媛믪쓣 吏곸젒 ?좊떦?섏뿬 珥덇린???꾨씫 諛⑹?
+  double omegaMin = 0.5;
+  double flySpeedY = -300;
+  double flySpeedX = 150;
+
+  final String imagePath;
+
+  Plate({
+    required Vector2 center,
+    required this.imagePath,
+    double initialOmega = 15,
+    this.friction = 1.0,
+    this.omegaMax = 30,
+    this.maxTilt = 0.8,
+    this.fallSpeed = 600,
+    Vector2? plateSize,
+  })
+      : omega = initialOmega,
+        super(
+        size: plateSize ?? Vector2(160, 160),
+        anchor: Anchor.center,
+        position: center,
+        priority: 10,
+      );
+
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    sprite = await game.loadSprite(imagePath);
+  }
+
+  @override
+  void onMount() {
+    super.onMount();
+    phase = phaseOffset;
+  }
+
+  void boost(double input) {
+    if (gameOver || flyingAway || falling) return;
+    // 遺?ㅽ듃 ?쒖뿉??omegaMax瑜??섏쑝硫?利됱떆 鍮꾪뻾 以鍮?
+    omega += input * 0.02;
+    // ?덈Т 臾댄븳???щ씪媛??寃껊쭔 諛⑹? (?? 理쒕? 50)
+    if (omega > 50) omega = 50;
+  }
+
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    if (gameOver) return;
+
+    // --- 鍮꾪뻾 ?곹깭 ?곗텧 ---
+    if (flyingAway) {
+      position.y += flySpeedY * dt;
+      position.x += flySpeedX * dt;
+      angle += dt * 10;
+      if (position.y + size.y < 0) gameOver = true;
+      return;
+    }
+
+    // 1. ?뚯쟾??媛먯뇿
+    omega -= friction * dt;
+
+    // 2. ?뵦 [異붾씫 ?먯젙] 3.0 ?댄븯 ??利됱떆 異붾씫 ?곹깭濡??꾪솚
+    if (!falling && !flyingAway && omega <= 3.0) {
+      falling = true;
+      SoundManager.playSfxSafe("crash.wav"); // 異붾씫 ?ъ슫??
+    }
+
+    // --- 異붾씫 ?곹깭 ?곗텧 ---
+    if (falling) {
+      position.y += (fallSpeed + 900) * dt;
+      angle = ui.lerpDouble(angle, (tilt >= 0 ? 1.57 : -1.57), dt * 25)!;
+      if (position.y > game.size.y + 100) gameOver = true;
+      return;
+    }
+
+    // 3. ??[媛??以묒슂] ?섑룊 ?뚯쟾媛?怨꾩궛 (??肄붾뱶媛 鍮좎졇?????뚯븯??寃껋엯?덈떎!)
+    // ?뚯쟾 ?띾룄(omega)???쒓컙??怨깊빐 媛곷룄瑜??꾩쟻?⑸땲??
+    angleRad = (angleRad + omega * dt) % (pi * 2);
+
+    // 4. ?붾뱾由?吏꾪룺 怨꾩궛 (3~12 援ш컙)
+    targetAmp = (1 - (omega - 3.0) / (12.0 - 3.0)).clamp(0, 1) * maxTilt;
+    currentAmp = ui.lerpDouble(currentAmp, targetAmp, dt * 2.0)!;
+
+    // ?붾뱾由?二쇨린 ?곸슜 (sin 洹몃옒?꾨? 洹몃젮 ?ㅼ젣 湲곗슱湲??앹꽦)
+    final freq = 0.5 + (omega * 0.3);
+    phase += freq * dt;
+    tilt = sin(phase) * currentAmp;
+
+    // ?쒓컖??湲곗슱湲?諛섏쁺
+    angle = tilt;
+
+    // 5. ?뵦 [?섏젙] 鍮꾪뻾 議곌굔 ?꾪솕
+    // omega媛 omegaMax 洹쇱쿂(?? 0.5 李⑥씠)留?媛????대㉧媛 ?뚭쾶 ?⑸땲??
+    if (omega >= (omegaMax - 0.5)) {
+      // ?섑룊 議곌굔(tilt)??議곌툑 ???덇렇?쎄쾶(0.05 -> 0.1) 議곗젙?⑸땲??
+      if (tilt.abs() < 0.1) {
+        flatTimer += dt;
+        // 1珥??좎? ??鍮꾪뻾
+        if (flatTimer >= 1.0) {
+          flyingAway = true;
+          SoundManager.playSfxSafe("fly.wav"); // 鍮꾪뻾 ?ъ슫??異붽? 異붿쿇
+        }
+      } else {
+        flatTimer = 0; // 湲곗슱?댁?硫???대㉧ 由ъ뀑
+      }
+    } else {
+      flatTimer = 0;
+    }
+
+    // 6. 怨쇱뿴 ?쒓컖??(25 ?댁긽遺??
+    final targetHeat = ((omega - 25.0) / (omegaMax - 25.0)).clamp(0.0, 1.0);
+    heat = ui.lerpDouble(heat, targetHeat, dt * 3.0)!;
+  }
+
+  @override
+  void render(ui. Canvas canvas) {
+    canvas.save();
+    canvas.translate(size.x / 2, size.y / 2);
+
+    // ?섏껌嫄곕━??湲곗슱湲??곸슜
+    canvas.rotate(tilt);
+
+    // ???쇰컲 ?묒떆??湲곕낯 ?⑹옉??(0.35)
+    // BowlPlate??bowl.dart?먯꽌 0.6?쇰줈 吏곸젒 ??뼱?곕룄濡??좊룄?⑸땲??
+    canvas.scale(1.0, 0.35);
+
+    // ?섑룊 ?뚯쟾
+    canvas.rotate(angleRad);
+
+    sprite?.render(canvas, size: size, anchor: Anchor.center);
+
+    // 怨쇱뿴 ?④낵
+    if (heat > 0.05) {
+      final overlay = Paint()
+        ..color = Colors.red.withValues(alpha: heat * 0.7)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 20 * heat);
+      canvas.drawCircle(Offset.zero, size.x / 2, overlay);
+    }
+    canvas.restore();
+  }
+}
+
+===== C:\Users\parki\spingo\lib\components\pole.dart =====
+
+// lib/components/pole.dart
+import 'package:flame/components.dart';
+import 'package:flame/game.dart';
+
+class Pole extends SpriteComponent with HasGameReference<FlameGame> {
+  final double targetHeight;
+
+  Pole({
+    required Vector2 position,
+    required this.targetHeight,
+  }) : super(
+    position: position,
+    size: Vector2(25, targetHeight), // ?앹꽦 ???먭퍡 ?ㅼ젙
+    anchor: Anchor.bottomCenter,
+    priority: 5,
+  );
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    sprite = await game.loadSprite('components/pole.png');
+
+    // ??媛濡??먭퍡瑜?45px濡??뺤떎???볧삍?듬땲??
+    size = Vector2(45, targetHeight);
+  }
+}
+
+===== C:\Users\parki\spingo\lib\widgets\age_rating_banner.dart =====
+
+import 'dart:async';
+import 'package:flutter/material.dart';
+
+class AgeRatingBanner extends StatefulWidget {
+  const AgeRatingBanner({super.key});
+
+  @override
+  State<AgeRatingBanner> createState() => _AgeRatingBannerState();
+}
+
+class _AgeRatingBannerState extends State<AgeRatingBanner> {
+  bool _visible = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // 3珥??ㅼ뿉 ?щ씪吏?꾨줉 ??대㉧
+    Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _visible = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 600),
+      opacity: _visible ? 1.0 : 0.0,
+      child: Align(
+        alignment: Alignment.topRight,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 18, right: 18),
+          child: Image.asset(
+            'assets/images/rating_all.png',
+            width: 80,
+            height: 80,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+===== C:\Users\parki\spingo\lib\widgets\exit_dialog.dart =====
+
+import 'package:flutter/material.dart';
+
+Future<void> showExitDialog(BuildContext context) async {
+  return showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: Colors.white,
+        title: const Text(
+          'SpinGo瑜?醫낅즺?좉퉴??',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        actionsAlignment: MainAxisAlignment.spaceEvenly,
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('痍⑥냼', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(0xFFF97316), // 釉뚮옖??而щ윭
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Navigator.of(context).pop(); // ?ㅼ씠?쇰줈洹??リ린
+              Navigator.of(context).maybePop(); // ?붾㈃ 醫낅즺
+            },
+            child: const Text('醫낅즺?섍린', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      );
+    },
+  );
+}
