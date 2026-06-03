@@ -62,9 +62,45 @@ class SpinGoApp extends StatelessWidget {
             fontFamily: lang == AppLang.ko ? 'NotoSansKR' : null,
           ),
           // ✅ 가로 화면 비율을 유지하기 위한 Wrapper
-          home: const GameMainWrapper(),
+          home: const LandscapeWrapper(
+            child: GameMainWrapper(),
+          ),
         );
       },
+    );
+  }
+}
+
+class LandscapeWrapper extends StatelessWidget {
+  final Widget child;
+
+  const LandscapeWrapper({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          final h = constraints.maxHeight;
+
+          if (w >= h) {
+            return child;
+          }
+
+          return Center(
+            child: RotatedBox(
+              quarterTurns: 1,
+              child: SizedBox(
+                width: h,
+                height: w,
+                child: child,
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
