@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'sound_manager.dart';
+import 'language_manager.dart';
 import 'l10n.dart';
 import '../widgets/age_rating_banner.dart';
 
@@ -78,6 +79,38 @@ class _IntroPageState extends State<IntroPage> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
+          Positioned(
+            top: 24,
+            right: 24,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black54,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 18, vertical: 10),
+              ),
+              onPressed: () async {
+                final next = LanguageManager.current.value == AppLang.ko
+                    ? AppLang.en
+                    : AppLang.ko;
+
+                await LanguageManager.set(next);
+
+                if (!mounted) return;
+                setState(() {
+                  _typedText = "";
+                });
+                _startTyping();
+              },
+              child: Text(
+                LanguageManager.current.value == AppLang.ko ? 'EN' : 'KR',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
           // 배경 이미지
           Positioned.fill(
               child: Image.asset(slide["image"]!, fit: BoxFit.cover)),

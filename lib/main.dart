@@ -8,6 +8,7 @@ import 'plate_game.dart';
 import 'intro.dart';
 import 'sound_manager.dart';
 import 'language_manager.dart';
+import 'l10n.dart';
 
 void main() async {
   // ✅ 플러터 엔진이 초기화될 때까지 대기
@@ -120,6 +121,8 @@ class _GameMainWrapperState extends State<GameMainWrapper> {
   bool _isIntro = false;
   int _selectedMode = 0;
 
+  Timer? _titleTimer;
+
   // 애니메이션을 위한 변수들
   String _displayTitle = "";
   final String _fullTitle = "SpinGo";
@@ -145,6 +148,7 @@ class _GameMainWrapperState extends State<GameMainWrapper> {
   void dispose() {
     // 3. 화면이 꺼질 때 조종기도 종료 (메모리 관리)
     _confettiController.dispose();
+    _titleTimer?.cancel();
     super.dispose();
   }
 
@@ -152,7 +156,7 @@ class _GameMainWrapperState extends State<GameMainWrapper> {
     _displayTitle = "";
     _showButton = false;
     int index = 0;
-    Timer.periodic(const Duration(milliseconds: 200), (timer) {
+    _titleTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
       if (index < _fullTitle.length) {
         setState(() {
           _displayTitle += _fullTitle[index];
@@ -255,8 +259,8 @@ class _GameMainWrapperState extends State<GameMainWrapper> {
                           borderRadius: BorderRadius.circular(40),
                         ),
                       ),
-                      child: const Text(
-                          '시작하기',
+                      child: Text(
+                          L10n.tr('start'),
                           style: TextStyle(fontSize: 28,
                               color: Colors.white,
                               fontWeight: FontWeight.bold)

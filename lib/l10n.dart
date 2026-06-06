@@ -15,9 +15,9 @@ class L10n {
     'lang': 'Language',
 
     // 인트로 슬라이드
-    'intro1': '재미없는 일상에 찌든 노총각 박봉식(41세) 과장은',
-    'intro2': '첫사랑을 닮은 그녀를 보며 불현듯 깨달았다.',
-    'intro3': '아직 못해본 일이 많다는 것을...',
+    'intro1': '재미없는 일상에 지친 노총각 박봉식(41세) 과장은',
+    'intro2': '첫사랑을 닮은 그녀를 보며 문득 깨달았다.',
+    'intro3': '아직 해보지 못한 일이 많다는 것을...',
     'intro4': '\'서커스를 배우고 싶습니다.\'        \'쉽지 않을 텐데...\'',
     'intro5': '\'뭐야, 저 녀석은?\'',
 
@@ -32,6 +32,16 @@ class L10n {
     'lv3v_msg': '재능이 있구만. 거의 다 왔으니 힘 내라구.',
     'lv4_msg': '이젠 실전이야. 무대에선 별일이 다 일어나지.',
     'lv4v_msg': '좋았어. 이제부터는 기록 싸움이야.',
+
+    'q_lv1': '기록에 도전해 보자!',
+    'q_lv2': '큰 접시는 마찰력이 크다는 걸 기억해.',
+    'q_lv3': '이제 두 개의 큰 접시를 동시에 버텨야 한다.',
+    'q_lv4': '사발까지 등장했어. 집중해!',
+    'q_lv5': '마지막 무대야. 버티는 만큼 기록이 된다.',
+
+    's_lv1': '접시를 돌리며 구구단 정답을 말해 보세요.',
+    's_lv2': '접시도, 문제도 놓치지 마세요.',
+    's_lv3': '손과 머리를 함께 쓰면 뇌가 자극 됩니다.',
 
     // 실패 메시지
     'tip_fly_1': '너무 빨리 돌리면 날아간다고!',
@@ -59,11 +69,11 @@ class L10n {
     'lang': 'Language',
 
     // Intro slides
-    'intro1': 'Chief Bong-sik Park, weary of dull routines...',
-    'intro2': 'Seeing a woman like his first love, he realizes...',
-    'intro3': 'There’s still so much he hasn’t done...',
-    'intro4': '\'I want to learn circus.\'     \'It won’t be easy...\'',
-    'intro5': '\'Who is that guy?\'',
+    'intro1': 'Bong-sik Park was tired of his boring life...',
+    'intro2': 'Then he met someone like his first love.',
+    'intro3': 'And realized he still had dreams to chase...',
+    'intro4': '"I want to join the circus."   \n"It won\'t be easy..."',
+    'intro5': '"Who is that guy?"',
 
     // Level messages
     'lv1_msg': 'Rub the stick, and the plate will spin.',
@@ -76,6 +86,16 @@ class L10n {
     'lv3v_msg': 'You’ve got talent — almost there!',
     'lv4_msg': 'Now it’s real — anything can happen on stage.',
     'lv4v_msg': 'Good! From here, it’s all about records.',
+
+    'q_lv1': 'Let’s go for a new record!',
+    'q_lv2': 'Remember: large plates have stronger friction.',
+    'q_lv3': 'Now you must keep two large plates spinning at once.',
+    'q_lv4': 'Bowls have joined the show. Stay focused!',
+    'q_lv5': 'Final stage. Your record depends on how long you survive.',
+
+    's_lv1': 'Spin the plates and say the correct multiplication answer.',
+    's_lv2': 'Do not lose track of either the plates or the questions.',
+    's_lv3': 'Using your hands and mind together stimulates your brain.',
 
     // Failure messages
     'tip_fly_1': 'Spin too fast and it’ll fly away!',
